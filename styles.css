@@ -11,6 +11,9 @@ svg .wire{stroke:#9eacbf;stroke-width:3;fill:none;stroke-linecap:round;stroke-li
 .wirepart{stroke:#15986d;stroke-width:3.5;stroke-linecap:round}
 .wirepart.switch-on{stroke:#15986d}
 .wirepart.switch-off{stroke:#15986d}
+.switch-base{cursor:grab}
+.switch-toggle{cursor:pointer}
+.switch-toggle-hit{pointer-events:all;cursor:pointer}
 .glow{fill:none;stroke:none;pointer-events:none}
 .node.lit .glow{fill:rgba(255,210,50,0.22);stroke:rgba(255,185,0,0.35);stroke-width:1.5;filter:drop-shadow(0 0 8px rgba(255,190,0,0.45))}
 @keyframes arrowPulse{0%,100%{transform:scale(1);opacity:.92}50%{transform:scale(1.18);opacity:1;filter:drop-shadow(0 0 4.5px #ff6600)}}

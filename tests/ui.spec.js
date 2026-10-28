@@ -1398,6 +1398,71 @@ test("inserting component into right-to-left return wire connects without routin
   await expect(page.locator("#statusText")).toContainText(/Closed circuit|Mạch kín/);
 });
 
+test("switch toggle trigger is limited to the blade/knob, while clicking switch frame does not toggle", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#clear").click();
+  await page.locator('[data-type="switch"]').click();
+  const sw = page.locator('[data-node]').first();
+  await expect(sw).toHaveCount(1);
+  await expect(sw.locator(".switch-off")).toHaveCount(1);
+
+  // Click on the corner of switch base (outside .switch-toggle)
+  await sw.scrollIntoViewIfNeeded();
+  await sw.locator(".switch-base").click({ force: true, position: { x: 5, y: 5 } });
+  // Still off - not toggled
+  await expect(sw.locator(".switch-off")).toHaveCount(1);
+  await expect(sw.locator(".switch-on")).toHaveCount(0);
+
+  // Click directly on the switch toggle blade/knob
+  await sw.locator(".switch-toggle").click({ force: true });
+  // Toggled to on!
+  await expect(sw.locator(".switch-on")).toHaveCount(1);
+  await expect(sw.locator(".switch-off")).toHaveCount(0);
+
+  // Click toggle again
+  await sw.locator(".switch-toggle").click({ force: true });
+  // Toggled back to off!
+  await expect(sw.locator(".switch-off")).toHaveCount(1);
+  await expect(sw.locator(".switch-on")).toHaveCount(0);
+});
+
+test("multiple wires sharing a terminal route cleanly without routing errors or overlapping segments", async ({ page }) => {
+  await page.goto("/");
+  // Import circuit with battery sharing terminal b with lamp and switch (as in user screenshot)
+  const circuit = {
+    schemaVersion: 1,
+    components: [
+      { id: "c1", type: "battery", x: 200, y: 250, voltage: 9, rotation: 0 },
+      { id: "c2", type: "lamp", x: 450, y: 140, resistance: 6, rotation: 0 },
+      { id: "c3", type: "switch", x: 450, y: 350, closed: true, rotation: 0 }
+    ],
+    wires: [
+      { id: "w1", from: "c1:b", to: "c2:a" },
+      { id: "w2", from: "c1:b", to: "c3:a" }
+    ],
+    junctions: []
+  };
+
+  await page.evaluate(data => {
+    const input = document.querySelector("#fileInput");
+    const file = new File([JSON.stringify(data)], "shared-terminal.json", { type: "application/json" });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, circuit);
+
+  await expect(page.locator(".wire-routing-error")).toHaveCount(0);
+  const paths = await page.locator(".wire-group path.wire").evaluateAll(els => els.map(el => el.getAttribute("d")));
+  expect(paths).toHaveLength(2);
+  expect(paths[0]).not.toBe(paths[1]);
+
+  // Ensure Wire 1 and Wire 2 branch immediately and do not both have the same horizontal run
+  expect(paths[0]).not.toContain(" 350");
+  expect(paths[1]).toContain(" 350");
+});
+
+
 
 
 
