@@ -1285,3 +1285,15 @@ test("dropping a component from palette onto a wire connects it in series", asyn
   await expect(page.locator("#statusText")).toContainText("Closed circuit");
 });
 
+test("flow overlays render directional arrows along conducting wires", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#language").selectOption("en");
+  await page.locator('.lesson[data-example="simple"]').click();
+  await expect(page.locator("#statusText")).toContainText("Closed circuit");
+  const arrowCount = await page.locator(".wire-flow-overlay .flow-arrow").count();
+  expect(arrowCount).toBeGreaterThan(0);
+  const color = await page.locator(".flow-arrow").first().evaluate(el => getComputedStyle(el).fill);
+  expect(color).toBe("rgb(230, 81, 0)");
+});
+
+
