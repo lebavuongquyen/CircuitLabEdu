@@ -20,7 +20,12 @@ svg .wire{stroke:#9eacbf;stroke-width:3;fill:none;stroke-linecap:round;stroke-li
 .node:focus-visible{outline:none;filter:drop-shadow(0 0 4px #3867e8)}
 .terminal:focus-visible{stroke:#3867e8;stroke-width:4;fill:#eaf0ff}
 
-.wire-hit{pointer-events:all;stroke:rgba(0,0,0,.001);stroke-width:24;touch-action:manipulation}
+.wire-hit{pointer-events:all;stroke:rgba(0,0,0,.001);stroke-width:24;touch-action:manipulation;cursor:grab}
+.wire-hit:active{cursor:grabbing}
+.junction-terminal{fill:#475569;stroke:#ffffff;stroke-width:2;cursor:grab;transition:transform .1s,fill .15s}
+.junction-terminal:hover{fill:#2563eb;stroke:#bfdbfe;stroke-width:2.5}
+.junction-terminal:active{cursor:grabbing}
+.junction-terminal.pending{fill:#e65100;stroke:#ffffff;stroke-width:2.5;filter:drop-shadow(0 0 5px #e65100)}
 
 .diagnostic-list{margin:8px 0 0 24px;padding:0;color:#a36b20;font-size:10px;line-height:1.6}
 

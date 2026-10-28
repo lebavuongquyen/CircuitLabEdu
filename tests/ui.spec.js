@@ -623,6 +623,55 @@ test("double-clicking a wire creates a junction and splits the wire", async ({ p
   await expect(page.locator("[data-wire]")).toHaveCount(5);
 });
 
+test("dragging a wire reshapes it with a new junction, and dragging a junction repositions it", async ({ page }) => {
+  test.skip(test.info().project.name === "chromium-mobile", "Drag reshaping requires desktop mouse drag gestures");
+  await page.goto("/");
+  await page.locator("#language").selectOption("en");
+  await page.locator('.lesson[data-example="simple"]').click();
+
+  const wirePoint = await page.locator("[data-wire]").evaluateAll(elements => {
+    const el = elements.sort((a, b) => b.getTotalLength() - a.getTotalLength())[0];
+    const p = el.getPointAtLength(el.getTotalLength() * 0.35);
+    const m = el.ownerSVGElement.createSVGPoint();
+    m.x = p.x;
+    m.y = p.y;
+    const client = m.matrixTransform(el.getScreenCTM());
+    return { x: client.x, y: client.y };
+  });
+
+  await page.mouse.move(wirePoint.x, wirePoint.y);
+  await page.mouse.down();
+  await page.mouse.move(wirePoint.x, wirePoint.y + 60, { steps: 5 });
+  await page.mouse.up();
+
+  await expect(page.locator(".junction-terminal")).toHaveCount(1);
+  await expect(page.locator("[data-wire]")).toHaveCount(4);
+
+  await page.locator("#run").click();
+  await expect(page.locator("#statusText")).toContainText("Closed circuit");
+  await expect(page.locator("[data-wire-flow-overlay]")).toHaveCount(4);
+
+  const junctionBox = await page.locator(".junction-terminal").boundingBox();
+  expect(junctionBox).toBeTruthy();
+  const jCenterX = junctionBox.x + junctionBox.width / 2;
+  const jCenterY = junctionBox.y + junctionBox.height / 2;
+
+  await page.mouse.move(jCenterX, jCenterY);
+  await page.mouse.down();
+  await page.mouse.move(jCenterX + 40, jCenterY + 30, { steps: 5 });
+  await page.mouse.up();
+
+  const newJunctionBox = await page.locator(".junction-terminal").boundingBox();
+  expect(Math.abs(newJunctionBox.x - junctionBox.x)).toBeGreaterThan(20);
+
+  await page.locator("#run").click();
+  await expect(page.locator("#statusText")).toContainText("Closed circuit");
+
+  await page.locator("#undo").click();
+  const undoneBox = await page.locator(".junction-terminal").boundingBox();
+  expect(Math.abs(undoneBox.x - junctionBox.x)).toBeLessThan(10);
+});
+
 test("grade curriculum filters lessons, opens every circuit and checks lesson requirements", async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
