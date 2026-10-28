@@ -69,3 +69,11 @@ svg .wire{stroke:#9eacbf;stroke-width:3;fill:none;stroke-linecap:round;stroke-li
   .bench-actions #clear{display:inline-flex;align-items:center;justify-content:center}
   .bench-actions{width:100%}
 }
+.node-rotate{opacity:0;pointer-events:none;cursor:pointer;outline:none;transition:opacity .15s}
+.node:hover .node-rotate,.node.selected .node-rotate{opacity:1;pointer-events:auto}
+.node-rotate .rotate-btn-bg{fill:#152b3b;stroke:#4ba3e3;stroke-width:1.4;transition:fill .15s,stroke .15s}
+.node:hover .node-rotate .rotate-btn-bg,.node.selected .node-rotate .rotate-btn-bg{fill:#1e3d55;stroke:#66bbf8}
+.node-rotate:hover .rotate-btn-bg{fill:#275273;stroke:#9ce0ff}
+.node-rotate:focus-visible .rotate-btn-bg{stroke:#ffbc00;stroke-width:2.2}
+.wire-snap-candidate .wire{stroke:#38bdf8!important;stroke-width:5!important;filter:drop-shadow(0 0 5px #38bdf8)}
+

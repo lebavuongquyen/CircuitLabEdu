@@ -524,6 +524,8 @@ test("components rotate manually and auto-orient when terminals are connected", 
   await expect(page.locator('[data-terminal="c2:b"]')).toHaveAttribute("cy", "36");
   await page.keyboard.press("r");
   await expect(page.locator('[data-node="c2"] .body-wrap')).toHaveAttribute("transform", "rotate(180)");
+  await page.locator('[data-node="c2"] [data-action="rotate"]').click();
+  await expect(page.locator('[data-node="c2"] .body-wrap')).toHaveAttribute("transform", "rotate(270)");
 });
 
 test("dragging a component onto a wire inserts it in series and splits the wire", async ({ page }) => {
@@ -1224,3 +1226,62 @@ test("parallel branch meters report independent branch currents and load voltage
   await expect(page.locator("#statusText")).toContainText("Closed circuit");
   await expect(page.locator("#explanation")).toContainText("current");
 });
+
+test("connecting terminals preserves existing orientation and does not auto-rotate", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#language").selectOption("en");
+  await page.locator('[data-type="battery"]').click();
+  await page.locator('[data-type="lamp"]').click();
+  // c1 is at (120, 110), c2 is at (280, 110). Rotate c2 to 90deg using on-node rotate icon
+  await page.locator('[data-node="c2"] [data-action="rotate"]').click();
+  await expect(page.locator('[data-node="c2"] .body-wrap')).toHaveAttribute("transform", "rotate(90)");
+  await expect(page.locator('[data-node="c1"] .body-wrap')).toHaveAttribute("transform", "rotate(0)");
+
+  // Connect terminals: should NOT auto-rotate
+  await page.locator('[data-terminal="c1:b"]').click();
+  await page.locator('[data-terminal="c2:a"]').click();
+  await expect(page.locator('[data-wire]')).toHaveCount(1);
+  await expect(page.locator('[data-node="c1"] .body-wrap')).toHaveAttribute("transform", "rotate(0)");
+  await expect(page.locator('[data-node="c2"] .body-wrap')).toHaveAttribute("transform", "rotate(90)");
+});
+
+test("dropping a component from palette onto a wire connects it in series", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#language").selectOption("en");
+  await page.locator('.lesson[data-example="simple"]').click();
+  await expect(page.locator("[data-node]")).toHaveCount(3);
+  await expect(page.locator("[data-wire]")).toHaveCount(3);
+
+  // Find midpoint of the longest wire to drop onto
+  const dropCoords = await page.locator("[data-wire]").evaluateAll(elements => {
+    const el = elements.sort((a, b) => b.getTotalLength() - a.getTotalLength())[0];
+    const pt = el.getPointAtLength(el.getTotalLength() / 2);
+    const client = pt.matrixTransform(el.getScreenCTM());
+    return { clientX: client.x, clientY: client.y };
+  });
+
+  // Dispatch HTML5 drop event on #canvasWrap
+  await page.evaluate(({ clientX, clientY }) => {
+    const target = document.querySelector("#canvasWrap");
+    const dt = new DataTransfer();
+    dt.setData("text/plain", "resistor");
+    const dropEvent = new DragEvent("drop", {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY,
+      dataTransfer: dt
+    });
+    target.dispatchEvent(dropEvent);
+  }, dropCoords);
+
+  // Verifies the resistor was added AND spliced into the wire
+  await expect(page.locator("[data-node]")).toHaveCount(4);
+  await expect(page.locator("[data-wire]")).toHaveCount(4);
+  // Verify it completes the circuit when simulated
+  await page.locator('[data-node="c2"]').click();
+  await page.locator("#prop-closed").selectOption("true");
+  await page.locator("#run").click();
+  await expect(page.locator("#statusText")).toContainText("Closed circuit");
+});
+
