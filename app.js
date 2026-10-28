@@ -111,7 +111,8 @@ else if(Math.abs(u.x-v.x)<0.01&&Math.abs(u.y-v.y)>0.01)obstacles.push({l:u.x-4,r
 }
 let routed=routeOrthogonal(start,end,obstacles);
 if(!routed.length)routed=routeOrthogonal(start,end,compObstacles);
-return routed.length?[a,...routed,b]:[];
+const full=routed.length?[a,...routed,b]:[];
+return full.filter((p,i)=>i===0||Math.hypot(p.x-full[i-1].x,p.y-full[i-1].y)>0.1);
 }
 function wireCurrentDirection(w,componentReadings){
 if(!componentReadings)return 0;
@@ -143,12 +144,70 @@ function renderProps(){const host=$("#properties"),c=cBy(state.selected);if(!c){
 function rotateComponent(cid,angle=90){const c=cBy(cid);if(!c)return;snap();c.rotation=(((c.rotation||0)+angle)%360+360)%360;state.selected=c.id;invalidateSimulation();render()}
 function pruneOrphanJunctions(){const degree=new Map(state.junctions.map(j=>["j:"+j.id,0]));for(const wire of state.wires)for(const key of [wire.from,wire.to])if(degree.has(key))degree.set(key,degree.get(key)+1);state.junctions=state.junctions.filter(j=>degree.get("j:"+j.id)>0)}
 function del(cid){snap();state.components=state.components.filter(c=>c.id!==cid);state.wires=state.wires.filter(w=>!w.from.startsWith(cid+":")&&!w.to.startsWith(cid+":"));pruneOrphanJunctions();state.selected=null;state.selectedWire=null;state.pending=null;invalidateSimulation();render()}
-function connect(a,b){if(a===b){$("#statusText").textContent=t("invalid");return}if(state.wires.some(w=>(w.from===a&&w.to===b)||(w.from===b&&w.to===a))){state.pending=null;render();return}snap();state.wires.push({id:"w"+state.nextId++,from:a,to:b});state.pending=null;state.selectedWire=null;invalidateSimulation();render()}
+function findBranchPoint(wire,fromKey,toKey){
+  const pFrom=tp(fromKey),pTo=tp(toKey);if(!pFrom||!pTo)return null;
+  const cTo=cBy(toKey.split(":")[0]),vTo=toKey.startsWith("j:")?{x:0,y:0}:terminalVector(cTo,toKey.endsWith(":a")?"a":"b",18);
+  const startTo={x:pTo.x+vTo.x,y:pTo.y+vTo.y};
+  const entry=captureWirePaths().find(item=>item.wire.id===wire.id);
+  const pts=entry?.points||routeWire(wire);
+  if(!pts||pts.length<2)return null;
+  for(const pt of pts){
+    if(Math.hypot(pt.x-pFrom.x,pt.y-pFrom.y)<14)continue;
+    if(Math.hypot(pt.x-pTo.x,pt.y-pTo.y)<14)continue;
+    if(Math.abs(pt.x-startTo.x)<4||Math.abs(pt.y-startTo.y)<4)return{x:Math.round(pt.x*10)/10,y:Math.round(pt.y*10)/10};
+  }
+  for(let i=1;i<pts.length;i++){
+    const u=pts[i-1],v=pts[i];
+    if(Math.abs(u.y-v.y)<0.01&&Math.abs(u.x-v.x)>0.01){
+      const minX=Math.min(u.x,v.x),maxX=Math.max(u.x,v.x);
+      if(startTo.x>=minX-2&&startTo.x<=maxX+2){
+        const candidate={x:Math.round(startTo.x*10)/10,y:Math.round(u.y*10)/10};
+        if(Math.hypot(candidate.x-pFrom.x,candidate.y-pFrom.y)>=14&&Math.hypot(candidate.x-pTo.x,candidate.y-pTo.y)>=14)return candidate;
+      }
+    }else if(Math.abs(u.x-v.x)<0.01&&Math.abs(u.y-v.y)>0.01){
+      const minY=Math.min(u.y,v.y),maxY=Math.max(u.y,v.y);
+      if(startTo.y>=minY-2&&startTo.y<=maxY+2){
+        const candidate={x:Math.round(u.x*10)/10,y:Math.round(startTo.y*10)/10};
+        if(Math.hypot(candidate.x-pFrom.x,candidate.y-pFrom.y)>=14&&Math.hypot(candidate.x-pTo.x,candidate.y-pTo.y)>=14)return candidate;
+      }
+    }
+  }
+  return null;
+}
+function connect(a,b){
+  if(!a||!b||a===b){$("#statusText").textContent=t("invalid");return}
+  if(state.wires.some(w=>(w.from===a&&w.to===b)||(w.from===b&&w.to===a))){state.pending=null;render();return}
+  snap();
+  for(const [fromKey,toKey] of [[a,b],[b,a]]){
+    if(!fromKey||!toKey||fromKey.startsWith("j:"))continue;
+    const existing=state.wires.find(w=>w.from===fromKey||w.to===fromKey);
+    if(!existing)continue;
+    const existingJunctionKey=existing.from?.startsWith("j:")?existing.from:existing.to?.startsWith("j:")?existing.to:null;
+    if(existingJunctionKey){
+      state.wires.push({id:"w"+state.nextId++,from:existingJunctionKey,to:toKey});
+      state.pending=null;state.selectedWire=null;invalidateSimulation();render();return;
+    }
+    const branchPt=findBranchPoint(existing,fromKey,toKey);
+    if(branchPt){
+      const junction={id:"j"+state.nextId++,x:branchPt.x,y:branchPt.y};
+      state.junctions.push(junction);
+      const jKey="j:"+junction.id,idx=state.wires.findIndex(w=>w.id===existing.id);
+      if(idx>=0){
+        const origFrom=existing.from,origTo=existing.to;
+        state.wires[idx]={id:existing.id,from:origFrom,to:jKey};
+        state.wires.push({id:"w"+state.nextId++,from:jKey,to:origTo});
+        state.wires.push({id:"w"+state.nextId++,from:jKey,to:toKey});
+        state.pending=null;state.selectedWire=null;invalidateSimulation();render();return;
+      }
+    }
+  }
+  state.wires.push({id:"w"+state.nextId++,from:a,to:b});state.pending=null;state.selectedWire=null;invalidateSimulation();render();
+}
 function svgPoint(e){const s=$("#circuit"),p=s.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(s.getScreenCTM().inverse())}
 function splitWireAtPoint(wireId,pt,setPending=true){const wire=state.wires.find(item=>item.id===wireId);if(!wire)return null;const entry=captureWirePaths().find(item=>item.wire.id===wireId);let points=entry?.points;if(!points||!points.length){const a=tp(wire.from),b=tp(wire.to);if(!a||!b)return null;points=[a,{x:a.x,y:b.y},b]}const nearest=nearestWirePoint(pt.x,pt.y,wire,points);if(!nearest||nearest.distance>35)return null;const pFrom=tp(wire.from),pTo=tp(wire.to);if(pFrom&&Math.hypot(nearest.point.x-pFrom.x,nearest.point.y-pFrom.y)<14)return null;if(pTo&&Math.hypot(nearest.point.x-pTo.x,nearest.point.y-pTo.y)<14)return null;snap();const junction={id:"j"+state.nextId++,x:Math.round(nearest.point.x*10)/10,y:Math.round(nearest.point.y*10)/10},index=state.wires.findIndex(item=>item.id===wireId);if(index<0)return null;state.junctions.push(junction);state.wires[index]={id:wire.id,from:wire.from,to:"j:"+junction.id};state.wires.push({id:"w"+state.nextId++,from:"j:"+junction.id,to:wire.to});if(setPending)state.pending="j:"+junction.id;else state.pending=null;state.selectedWire=null;invalidateSimulation();render();return junction}
 let drag=null;
 $("#circuit").addEventListener("dblclick",e=>{let hit=e.target.closest("[data-wire]");if(!hit){const pt=svgPoint(e);for(const item of captureWirePaths()){const near=nearestWirePoint(pt.x,pt.y,item.wire,item.points);if(near&&near.distance<18){hit={dataset:{wire:item.wire.id}};break}}}if(!hit)return;e.preventDefault();e.stopPropagation();splitWireAtPoint(hit.dataset.wire,svgPoint(e))});
-$("#circuit").addEventListener("pointerdown",e=>{const rot=e.target.closest("[data-action='rotate']");if(rot){e.preventDefault();e.stopPropagation();rotateComponent(rot.dataset.nodeId);return}const term=e.target.closest("[data-terminal]");if(term){e.preventDefault();const k=term.dataset.terminal;if(k.startsWith("j:")){const jId=k.slice(2);const j=state.junctions.find(item=>item.id===jId);if(j){const pt=svgPoint(e);drag={type:"junction",id:j.id,key:k,startX:pt.x,startY:pt.y,dx:j.x-pt.x,dy:j.y-pt.y,x:pt.x,y:pt.y,moved:false};return}}if(!state.pending){state.pending=k;render()}else connect(state.pending,k);return}const wire=e.target.closest("[data-wire]");if(wire){state.selectedWire=wire.dataset.wire;state.pending=null;document.querySelectorAll(".wire-selected").forEach(el=>el.classList.remove("wire-selected"));wire.closest(".wire-group")?.classList.add("wire-selected");const pt=svgPoint(e);drag={type:"wire",wireId:wire.dataset.wire,startX:pt.x,startY:pt.y,pt,x:pt.x,y:pt.y,moved:false};return}const node=e.target.closest("[data-node]");if(node){const c=cBy(node.dataset.node);state.selected=c.id;state.selectedWire=null;const pt=svgPoint(e);drag={type:"component",id:c.id,dx:c.x-pt.x,dy:c.y-pt.y,x:pt.x,y:pt.y,moved:false,wirePaths:captureWirePaths(c.id),switchCandidate:c.type==="switch"&&!!e.target.closest(".switch-toggle")};try{$("#circuit").setPointerCapture(e.pointerId)}catch{}renderProps();return}state.pending=null});
+$("#circuit").addEventListener("pointerdown",e=>{const rot=e.target.closest("[data-action='rotate']");if(rot){e.preventDefault();e.stopPropagation();rotateComponent(rot.dataset.nodeId);return}const term=e.target.closest("[data-terminal]");if(term){e.preventDefault();const k=term.dataset.terminal;if(k.startsWith("j:")){const jId=k.slice(2);const j=state.junctions.find(item=>item.id===jId);if(j){const pt=svgPoint(e);drag={type:"junction",id:j.id,key:k,startX:pt.x,startY:pt.y,dx:j.x-pt.x,dy:j.y-pt.y,x:pt.x,y:pt.y,moved:false};return}}if(!state.pending){state.pending=k;render()}else connect(state.pending,k);return}const wire=e.target.closest("[data-wire]");if(wire){if(state.pending){e.preventDefault();const pendingKey=state.pending,pt=svgPoint(e),junction=splitWireAtPoint(wire.dataset.wire,pt,false);if(junction){connect(pendingKey,"j:"+junction.id);return}}state.selectedWire=wire.dataset.wire;state.pending=null;document.querySelectorAll(".wire-selected").forEach(el=>el.classList.remove("wire-selected"));wire.closest(".wire-group")?.classList.add("wire-selected");const pt=svgPoint(e);drag={type:"wire",wireId:wire.dataset.wire,startX:pt.x,startY:pt.y,pt,x:pt.x,y:pt.y,moved:false};return}const node=e.target.closest("[data-node]");if(node){const c=cBy(node.dataset.node);state.selected=c.id;state.selectedWire=null;const pt=svgPoint(e);drag={type:"component",id:c.id,dx:c.x-pt.x,dy:c.y-pt.y,x:pt.x,y:pt.y,moved:false,wirePaths:captureWirePaths(c.id),switchCandidate:c.type==="switch"&&!!e.target.closest(".switch-toggle")};try{$("#circuit").setPointerCapture(e.pointerId)}catch{}renderProps();return}state.pending=null});
 document.addEventListener("pointermove",e=>{if(!drag)return;const pt=svgPoint(e);if(drag.type==="junction"){const j=state.junctions.find(item=>item.id===drag.id);if(!j)return;if(Math.hypot(pt.x-drag.startX,pt.y-drag.startY)>4&&!drag.moved){snap();drag.moved=true}if(!drag.moved)return;j.x=Math.max(30,Math.min(870,Math.round((pt.x+drag.dx)/5)*5));j.y=Math.max(30,Math.min(480,Math.round((pt.y+drag.dy)/5)*5));render();return}if(drag.type==="wire"){if(Math.hypot(pt.x-drag.startX,pt.y-drag.startY)>6){const junction=splitWireAtPoint(drag.wireId,drag.pt,false);if(junction){drag={type:"junction",id:junction.id,key:"j:"+junction.id,startX:drag.startX,startY:drag.startY,dx:0,dy:0,x:pt.x,y:pt.y,moved:true};junction.x=Math.max(30,Math.min(870,Math.round(pt.x/5)*5));junction.y=Math.max(30,Math.min(480,Math.round(pt.y/5)*5));render()}else{drag=null}}return}const c=cBy(drag.id);if(!c)return;if(Math.abs(pt.x-drag.x)+Math.abs(pt.y-drag.y)>8&&!drag.moved){snap();drag.moved=true}if(!drag.moved)return;c.x=Math.max(55,Math.min(845,pt.x+drag.dx));c.y=Math.max(65,Math.min(445,pt.y+drag.dy));render();const hasWires=state.wires.some(w=>w.from.startsWith(c.id+":")||w.to.startsWith(c.id+":"));if(!hasWires&&drag.wirePaths){for(const candidate of drag.wirePaths){const wire=state.wires.find(w=>w.id===candidate.wire.id);if(!wire)continue;const near=nearestWirePoint(c.x,c.y,wire,candidate.points);const group=document.querySelector('[data-wire-group="'+wire.id+'"]');if(group){if(near&&near.distance<=65)group.classList.add("wire-snap-candidate");else group.classList.remove("wire-snap-candidate")}}}});
 document.addEventListener("pointerup",()=>{document.querySelectorAll(".wire-snap-candidate").forEach(el=>el.classList.remove("wire-snap-candidate"));if(drag?.type==="junction"){if(!drag.moved){const k=drag.key;if(!state.pending){state.pending=k;render()}else connect(state.pending,k)}else{invalidateSimulation();render()}}else if(drag?.type==="wire"){}else if(drag?.moved){const component=cBy(drag.id);if(component){const hasWires=state.wires.some(w=>w.from.startsWith(component.id+":")||w.to.startsWith(component.id+":"));if(!hasWires)insertComponentIntoWire(component,drag.wirePaths||captureWirePaths(component.id))}invalidateSimulation();render()}else if(drag?.switchCandidate){const c=cBy(drag.id);if(c){snap();c.closed=!c.closed;refreshAfterSwitchChange();render()}}drag=null});document.addEventListener("pointercancel",()=>{document.querySelectorAll(".wire-snap-candidate").forEach(el=>el.classList.remove("wire-snap-candidate"));drag=null});
 $("#circuit").addEventListener("keydown",e=>{if(e.key!=="Enter"&&e.key!==" ")return;const rot=e.target.closest("[data-action='rotate']");if(rot){e.preventDefault();rotateComponent(rot.dataset.nodeId);return}const term=e.target.closest("[data-terminal]");if(term){e.preventDefault();const k=term.dataset.terminal;if(!state.pending){state.pending=k;render()}else connect(state.pending,k);return}const node=e.target.closest("[data-node]");if(!node)return;e.preventDefault();const c=cBy(node.dataset.node);state.selected=c.id;state.selectedWire=null;if(c.type==="switch"){snap();c.closed=!c.closed;refreshAfterSwitchChange()}render()});

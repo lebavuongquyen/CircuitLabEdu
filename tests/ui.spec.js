@@ -1462,6 +1462,85 @@ test("multiple wires sharing a terminal route cleanly without routing errors or 
   expect(paths[1]).toContain(" 350");
 });
 
+test("connecting multiple parallel loads from a shared terminal creates a junction branch instead of duplicate parallel tracks", async ({ page }) => {
+  await page.goto("/");
+
+  const circuit = {
+    schemaVersion: 1,
+    components: [
+      { id: "c1", type: "battery", x: 650, y: 250, voltage: 9, rotation: 0 },
+      { id: "c2", type: "lamp", x: 200, y: 140, resistance: 6, rotation: 0 },
+      { id: "c3", type: "lamp", x: 200, y: 360, resistance: 6, rotation: 0 }
+    ],
+    wires: [],
+    junctions: []
+  };
+
+  await page.evaluate(data => {
+    const input = document.querySelector("#fileInput");
+    const file = new File([JSON.stringify(data)], "test.json", { type: "application/json" });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, circuit);
+
+  // Wire c1:a to c2:a
+  await page.locator('[data-terminal="c1:a"]').click({ force: true });
+  await page.locator('[data-terminal="c2:a"]').click({ force: true });
+  await expect(page.locator("[data-wire]")).toHaveCount(1);
+  await expect(page.locator(".junction-terminal")).toHaveCount(0);
+
+  // Wire c1:a to c3:a
+  await page.locator('[data-terminal="c1:a"]').click({ force: true });
+  await page.locator('[data-terminal="c3:a"]').click({ force: true });
+
+  // A junction must be automatically created to form the branch!
+  await expect(page.locator(".junction-terminal")).toHaveCount(1);
+  await expect(page.locator("[data-wire]")).toHaveCount(3);
+  await expect(page.locator(".wire-routing-error")).toHaveCount(0);
+});
+
+test("clicking an existing wire while wiring creates a junction and completes the connection", async ({ page }) => {
+  await page.goto("/");
+
+  const circuit = {
+    schemaVersion: 1,
+    components: [
+      { id: "c1", type: "battery", x: 200, y: 250, voltage: 9, rotation: 0 },
+      { id: "c2", type: "lamp", x: 600, y: 250, resistance: 6, rotation: 0 },
+      { id: "c3", type: "resistor", x: 400, y: 140, resistance: 10, rotation: 0 }
+    ],
+    wires: [
+      { id: "w1", from: "c1:b", to: "c2:a" }
+    ],
+    junctions: []
+  };
+
+  await page.evaluate(data => {
+    const input = document.querySelector("#fileInput");
+    const file = new File([JSON.stringify(data)], "test.json", { type: "application/json" });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, circuit);
+
+  await expect(page.locator(".junction-terminal")).toHaveCount(0);
+
+  // Click resistor terminal A to start wiring
+  await page.locator('[data-terminal="c3:a"]').click({ force: true });
+
+  // Click on the wire connecting battery and lamp
+  const wire = page.locator("[data-wire]").first();
+  await wire.click({ force: true });
+
+  // Should split wire with a junction and connect resistor:a to it
+  await expect(page.locator(".junction-terminal")).toHaveCount(1);
+  await expect(page.locator("[data-wire]")).toHaveCount(3);
+});
+
+
 
 
 
