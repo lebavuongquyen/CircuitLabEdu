@@ -1,0 +1,30 @@
+{
+  "name": "circuitlab-edu",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test",
+    "test:browser": "playwright test",
+    "test:all": "npm test && npm run test:types && npm run test:browser",
+    "test:core": "node --test tests/solver.test.js tests/solver-property.test.js tests/transient-singular-regression.test.js tests/initial-conditions-reference.test.js",
+    "test:packages": "node --test tests/package-api.test.js tests/viewport-config.test.js tests/react-canvas.test.js",
+    "test:types": "tsc --noEmit -p tests/types/tsconfig.json",
+    "test:react-ui": "playwright test tests/react-workbench.spec.js",
+    "dev:react-lab": "vite --host 127.0.0.1 --port 4174 --strictPort"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.64.1",
+    "@types/react": "^19.3.0",
+    "react-dom": "^19.3.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7"
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/react",
+    "packages/exercise-pack-basic"
+  ]
+}

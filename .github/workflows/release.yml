@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Run verification checks
+        run: npm run test:all
+
+      - name: Package distribution bundle
+        run: |
+          VERSION="${{ github.ref_name }}"
+          if [ -z "$VERSION" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.tag_name }}"
+          fi
+          ARCHIVE_NAME="circuitlab-edu-${VERSION}"
+          mkdir -p dist-release
+          tar --exclude="./node_modules" \
+              --exclude="./.git" \
+              --exclude="./dist-release" \
+              --exclude="./test-results" \
+              --exclude="./playwright-report" \
+              -czf "dist-release/${ARCHIVE_NAME}.tar.gz" .
+          zip -q -r "dist-release/${ARCHIVE_NAME}.zip" . \
+              -x "node_modules/*" ".git/*" "dist-release/*" "test-results/*" "playwright-report/*"
+          ls -lh dist-release
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            dist-release/*

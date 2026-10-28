@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CircuitCanvas responsive integration fixture</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; font-family: sans-serif; }
+    #parent { width: 800px; max-width: 100%; min-width: 0; }
+    #status { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="parent"></div>
+  <div id="fixed"></div>
+  <div id="status" aria-live="polite"></div>
+  <script type="module" src="./react-canvas-entry.jsx"></script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f7fb">
+<link rel="icon" href="data:,">
+<title>CircuitLab Edu — Phòng thí nghiệm mạch điện</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#"><span class="brand-mark">ϟ</span><span>CircuitLab <b>Edu</b><small data-i18n="tagline">Phòng thí nghiệm mạch điện</small></span></a>
+  <div class="top-actions">
+    <label class="sr-only" for="language">Language</label><select id="language" aria-label="Language"><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
+    <label class="sr-only" for="level">Learning level</label><select id="level"><option value="primary">Tiểu học / Primary</option><option value="middle">THCS / Middle school</option><option value="high">THPT / High school</option></select>
+    <button id="save" class="button subtle" data-i18n="save">Lưu mạch</button><button id="open" class="button subtle" data-i18n="open">Mở mạch</button><input id="fileInput" type="file" accept=".json,application/json" hidden>
+  </div>
+</header>
+<main>
+  <section class="intro"><div><p class="eyebrow" data-i18n="eyebrow">LEARN BY BUILDING</p><h1 data-i18n="heading">Tự lắp mạch. Tự khám phá.</h1><p data-i18n="subheading">Kết nối linh kiện, bật công tắc và quan sát điện học vận hành.</p></div><div class="level-chip"><span class="pulse"></span><span id="levelCaption">Khám phá cơ bản</span></div></section>
+  <section class="workspace">
+    <aside class="panel toolbox">
+      <div class="panel-heading"><div><h2 data-i18n="components">Linh kiện</h2><p data-i18n="dragHint">Kéo vào bàn thí nghiệm</p></div><span class="count">01</span></div>
+      <div class="component-list">
+        <button class="component" draggable="true" data-type="battery"><span class="component-icon battery-icon"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="9" y="7" width="18" height="25" rx="5" fill="#ffe0a0" stroke="#c98920" stroke-width="1.5"/><rect x="14" y="4" width="8" height="4" rx="1.5" fill="#9ca8b8"/><path d="M18 13v8m-4-4h8m-4 7h8" stroke="#b77916" stroke-width="2" stroke-linecap="round"/></svg></span><span><b data-i18n="battery">Pin / Nguồn DC</b><small>3–12 V</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="acSource"><span class="component-icon" style="background:#e8f4ff;color:#286aa8">∿</span><span><b data-i18n="acSource">Nguồn AC</b><small>50 Hz · Sine wave</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="lamp"><span class="component-icon lamp-icon"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M10 14a8 8 0 1 1 16 0c0 4-3 5-4 9h-8c-1-4-4-5-4-9Z" fill="#fff4bc" stroke="#dba326" stroke-width="1.5"/><path d="M14 24h8m-7 3h6m-5 3h4M14 10l8 8m0-8-8 8" fill="none" stroke="#dba326" stroke-width="1.5" stroke-linecap="round"/></svg></span><span><b data-i18n="lamp">Bóng đèn</b><small>6 Ω · 6 W rated</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="resistor"><span class="component-icon resistor-icon"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M2 18h6m20 0h6" stroke="#8a67d8" stroke-width="2.5" stroke-linecap="round"/><rect x="8" y="10" width="20" height="16" rx="3" fill="#e8dcff" stroke="#8a67d8" stroke-width="1.5"/><path d="M13 11v14m5-14v14m5-14v14" stroke="#9b7be0" stroke-width="2.5"/></svg></span><span><b data-i18n="resistor">Điện trở</b><small>10 Ω</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="switch"><span class="component-icon switch-icon"><svg viewBox="0 0 36 36" aria-hidden="true"><rect x="3" y="7" width="30" height="22" rx="6" fill="#e6f7ef" stroke="#8dd4b7"/><circle cx="10" cy="18" r="2.5" fill="#fff" stroke="#15976b" stroke-width="1.5"/><circle cx="26" cy="18" r="2.5" fill="#fff" stroke="#15976b" stroke-width="1.5"/><path d="M10 18 24 11" stroke="#15976b" stroke-width="2.2" stroke-linecap="round"/></svg></span><span><b data-i18n="switch">Công tắc</b><small data-i18n="switchHint">Nhấn để đóng / mở</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="ammeter"><span class="component-icon" style="background:#e4f3ff;color:#286aa8">A</span><span><b data-i18n="ammeter">Ampe kế</b><small>Series · A</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="voltmeter"><span class="component-icon" style="background:#f1eaff;color:#7450bd">V</span><span><b data-i18n="voltmeter">Vôn kế</b><small>Parallel · V</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="capacitor"><span class="component-icon" style="background:#fff0df;color:#bd782a">Ⅱ</span><span><b data-i18n="capacitor">Tụ điện</b><small>F · Transient</small></span><span class="add">+</span></button>
+        <button class="component" draggable="true" data-type="inductor"><span class="component-icon" style="background:#e5f5ec;color:#2d946a">∿</span><span><b data-i18n="inductor">Cuộn cảm</b><small>H · Transient</small></span><span class="add">+</span></button>
+      </div>
+      <div class="tool-divider"></div>
+      <div class="panel-heading"><div><h2 data-i18n="experiments">Bài thực hành</h2><p data-i18n="tryCircuit">Thử một mạch mẫu</p></div></div>
+      <button class="lesson" data-example="simple"><span class="lesson-number">01</span><span><b data-i18n="lesson1">Thắp sáng bóng đèn</b><small data-i18n="lesson1sub">Pin · Công tắc · Bóng đèn</small></span><span>↗</span></button>
+      <button class="lesson" data-example="series"><span class="lesson-number">02</span><span><b data-i18n="lesson2">Hai đèn nối tiếp</b><small data-i18n="lesson2sub">Quan sát dòng điện</small></span><span>↗</span></button>
+      <button class="lesson" data-example="parallel"><span class="lesson-number">03</span><span><b data-i18n="lesson3">Hai đèn song song</b><small data-i18n="lesson3sub">So sánh các nhánh</small></span><span>↗</span></button>
+      <div class="tool-divider"></div>
+      <div class="panel-heading curriculum-heading"><div><h2 data-i18n="curriculumTitle">Bài mô phỏng theo lớp</h2><p id="curriculumCount">6 bài học</p></div></div>
+      <div id="lessonCatalog" class="lesson-catalog" aria-label="Bài mô phỏng theo cấp học"></div>
+      <div class="sidebar-tip"><span>✳</span><p data-i18n="tip">Mẹo: Chọn hai đầu cực để nối dây. Nhấp dây để chọn; nhấn Delete để xóa. Nhấn công tắc để bật/tắt.</p></div>
+    </aside>
+    <section class="panel bench-panel">
+      <div class="bench-header"><div><div class="panel-heading compact"><div><h2 data-i18n="bench">Bàn thí nghiệm</h2><p data-i18n="benchSub">Kéo linh kiện · Chạm hai chân để nối</p></div></div></div><div class="bench-actions"><button id="undo" class="icon-button" title="Undo" aria-label="Undo">↶</button><button id="clear" class="button subtle" data-i18n="clear">Xóa mạch</button><button id="run" class="button primary"><span>▶</span><span data-i18n="run">Chạy mô phỏng</span></button><label class="property-row"><span data-i18n="transientDuration">Thời gian (s)</span><input id="transientDuration" type="number" min="0.001" max="1000" step="0.1" value="1" aria-label="Transient duration"></label><label class="property-row"><span data-i18n="transientStep">Bước thời gian (s)</span><input id="transientStep" type="number" min="0.000001" max="10" step="0.001" value="0.01" aria-label="Transient time step"></label><button id="runTransient" class="button subtle" data-i18n="transientRun">Chạy mô phỏng quá độ</button></div></div>
+      <div class="canvas-wrap" id="canvasWrap"><svg id="circuit" viewBox="0 0 900 510" role="img" aria-label="Interactive circuit workspace"><defs><pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#dce3ed"/></pattern></defs><rect width="900" height="510" fill="url(#dots)"/><g id="wires"></g><g id="nodes"></g></svg><div id="emptyState" class="empty-state"><span class="empty-icon">ϟ</span><b data-i18n="emptyTitle">Bắt đầu lắp mạch điện</b><p data-i18n="emptyText">Kéo một linh kiện từ danh sách bên trái vào đây, hoặc chọn bài thực hành.</p></div><div class="canvas-legend"><span><i class="legend-dot live"></i><span data-i18n="legendCurrent">Có dòng điện</span></span><span><i class="legend-dot idle"></i><span data-i18n="legendWire">Dây dẫn</span></span></div></div>
+      <div class="bench-footer"><span><i class="status-dot" id="statusDot"></i><span id="statusText" data-i18n="notRun">Chưa chạy mô phỏng</span></span><span id="componentCount">0 linh kiện · 0 dây</span></div>
+    </section>
+    <aside class="panel inspector">
+      <div class="panel-heading"><div><h2 data-i18n="observations">Quan sát</h2><p data-i18n="liveReadings">Kết quả mô phỏng</p></div><span class="count">02</span></div>
+      <div class="metric-grid"><div class="metric"><span data-i18n="voltage">Điện áp nguồn</span><strong id="voltageMetric">— <small>V</small></strong></div><div class="metric"><span data-i18n="current">Cường độ dòng điện</span><strong id="currentMetric">— <small>A</small></strong></div><div class="metric"><span data-i18n="power">Công suất tiêu thụ</span><strong id="powerMetric">— <small>W</small></strong></div><div class="metric"><span data-i18n="resistanceTotal">Điện trở tương đương</span><strong id="resistanceMetric">— <small>Ω</small></strong></div></div>
+      <div class="tool-divider"></div>
+      <div class="panel-heading"><div><h2 data-i18n="properties">Thuộc tính</h2><p data-i18n="selectPart">Chọn linh kiện trên bàn</p></div></div>
+      <div id="properties" class="properties"><div class="property-empty"><span>⌖</span><p data-i18n="selectPrompt">Chọn một linh kiện để xem hoặc thay đổi thông số.</p></div></div>
+      <div class="tool-divider"></div>
+      <div class="panel-heading"><div><h2 data-i18n="understand">Giải thích</h2><p data-i18n="why">Vì sao mạch hoạt động như vậy?</p></div></div>
+      <div id="explanation" class="explanation"><span class="explanation-icon">✧</span><p data-i18n="explainDefault">Chạy mô phỏng để xem dòng điện, điện áp và lời giải thích.</p></div>
+      <div class="safety-note"><span>ⓘ</span><p data-i18n="safety">Mô phỏng chỉ dùng linh kiện ảo điện áp thấp. Không thử nghiệm điện lưới thật.</p></div>
+    </aside>
+  </section>
+  <section class="panel transient-panel" style="max-width:1530px;width:93%;margin:16px auto 0;padding:16px;display:none" id="transientPanel"><div class="panel-heading"><div><h2 data-i18n="transientChart">Đáp ứng theo thời gian</h2><p id="transientMessage"></p><label class="property-row"><span>Signal / Tín hiệu</span><select id="transientSignal" aria-label="Transient signal"></select></label></div></div><svg id="transientChart" viewBox="0 0 900 220" role="img" aria-label="Transient response chart" style="width:100%;min-height:180px"><path d="M60 15 V185 H875" fill="none" stroke="#aab6c8" stroke-width="1.5"/><text x="450" y="213" text-anchor="middle" fill="#78869b" font-size="12">Time (s)</text></svg></section>
+  <section class="learn-strip"><div class="learn-icon">✦</div><div><b data-i18n="challengeTitle">Thử thách của bạn</b><p id="challengeText" data-i18n="challengeText">Hãy tạo một mạch kín để thắp sáng bóng đèn. Bạn có thể tìm ra vì sao đèn không sáng?</p></div><button id="challenge" class="button subtle" data-i18n="hint">Gợi ý</button><button id="checkLesson" class="button primary" data-i18n="checkCircuit">Kiểm tra mạch</button><button id="resetLesson" class="button subtle" data-i18n="resetLesson">Đặt lại bài học</button><button id="createLesson" class="button subtle" data-i18n="createLesson">Tạo bài học</button><button id="exportLesson" class="button subtle" data-i18n="exportLesson">Xuất bài học</button><button id="importLesson" class="button subtle" data-i18n="importLesson">Nhập bài học</button><input id="lessonFileInput" type="file" accept=".json,application/json" hidden></section>
+  <section id="lessonEditor" class="panel lesson-editor" style="display:none;max-width:1530px;width:93%;margin:16px auto;padding:18px">
+    <div class="panel-heading"><div><h2 data-i18n="createLesson">Tạo bài học</h2><p data-i18n="lessonEditorSub">Tạo bài học song ngữ có thể xuất thành JSON</p></div></div>
+    <form id="lessonEditorForm" class="lesson-editor-grid">
+      <label class="property-row"><span data-i18n="lessonId">Mã bài học</span><input id="lessonId" required pattern="[A-Za-z0-9](?:[A-Za-z0-9]|-){1,63}" value="my-lesson"></label>
+      <label class="property-row"><span data-i18n="lessonLevel">Cấp học</span><select id="lessonLevel"><option value="primary">Primary</option><option value="middle">Middle</option><option value="high">High</option></select></label>
+      <label class="property-row"><span data-i18n="lessonTitleVi">Tiêu đề tiếng Việt</span><input id="lessonTitleVi" required value="Bài học mới"></label>
+      <label class="property-row"><span data-i18n="lessonTitleEn">Lesson title (English)</span><input id="lessonTitleEn" required value="New lesson"></label>
+      <label class="property-row"><span data-i18n="lessonObjectiveVi">Mục tiêu tiếng Việt</span><textarea id="lessonObjectiveVi" required rows="2">Tạo mạch và kiểm tra kết quả.</textarea></label>
+      <label class="property-row"><span data-i18n="lessonObjectiveEn">Objective (English)</span><textarea id="lessonObjectiveEn" required rows="2">Build the circuit and check the result.</textarea></label>
+      <label class="property-row"><span data-i18n="lessonHintsVi">Gợi ý tiếng Việt (mỗi dòng một gợi ý)</span><textarea id="lessonHintsVi" rows="3">Kiểm tra kết nối hai cực.</textarea></label>
+      <label class="property-row"><span data-i18n="lessonHintsEn">English hints (one per line)</span><textarea id="lessonHintsEn" rows="3">Check both terminal connections.</textarea></label>
+      <label class="property-row lesson-wide"><span data-i18n="lessonExpected">Điều kiện chấm (JSON)</span><textarea id="lessonExpected" required rows="3">{"componentTypes":["battery","lamp"],"requireClosedCircuit":true}</textarea></label>
+      <label class="lesson-wide lesson-checkbox"><input id="lessonUseCurrent" type="checkbox" checked><span data-i18n="lessonUseCurrent">Dùng mạch hiện tại làm mạch bắt đầu</span></label>
+      <div class="lesson-wide lesson-editor-actions"><button id="saveLesson" class="button primary" type="submit" data-i18n="saveLesson">Lưu bài học</button><button id="cancelLesson" class="button subtle" type="button" data-i18n="cancel">Hủy</button></div>
+    </form>
+  </section>
+  <footer><span>ϟ CircuitLab Edu <span data-i18n="footer">· Học vật lý bằng trải nghiệm</span></span><span>DC/AC circuit simulator · v0.1.0</span></footer>
+</main>
+<script type="importmap">
+{
+  "imports": {
+    "@circuitlabedu/core": "./packages/core/src/index.js",
+    "@circuitlabedu/core/solver": "./packages/core/src/solver.js"
+  }
+}
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
