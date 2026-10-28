@@ -1296,4 +1296,23 @@ test("flow overlays render directional arrows along conducting wires", async ({ 
   expect(color).toBe("rgb(230, 81, 0)");
 });
 
+test("switch graphically renders open and closed blade positions without textual state label", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#language").selectOption("vi");
+  await page.locator('.lesson[data-example="simple"]').click();
+  const switchNode = page.locator('[data-node="c2"]');
+  const onBlade = switchNode.locator(".wirepart.switch-on");
+  await expect(onBlade).toHaveCount(1);
+  expect(await onBlade.getAttribute("y1")).toBe("0");
+  expect(await onBlade.getAttribute("y2")).toBe("0");
+  await expect(switchNode.locator(".node-value")).toHaveText("");
+
+  await switchNode.locator(".body-wrap").click();
+  const offBlade = switchNode.locator(".wirepart.switch-off");
+  await expect(offBlade).toHaveCount(1);
+  expect(Number(await offBlade.getAttribute("y2"))).toBeLessThan(0);
+  await expect(switchNode.locator(".node-value")).toHaveText("");
+});
+
+
 
