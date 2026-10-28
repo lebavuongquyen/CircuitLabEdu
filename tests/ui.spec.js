@@ -1325,6 +1325,31 @@ test("lamp glow is not rendered as a black circle when lit or unlit", async ({ p
   expect(fill).toContain("255");
 });
 
+test("inserting component into right-to-left return wire connects without routing errors or crossed wires", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('.lesson[data-example="series"]').click();
+  const dropCoords = await page.locator("[data-wire]").evaluateAll(elements => {
+    const el = elements.find(e => e.closest('[data-wire-group="w3"]')) || elements[elements.length - 1];
+    const pt = el.getPointAtLength(el.getTotalLength() / 2);
+    const client = pt.matrixTransform(el.getScreenCTM());
+    return { clientX: client.x, clientY: client.y };
+  });
+
+  await page.evaluate(({ clientX, clientY }) => {
+    const target = document.querySelector("#canvasWrap");
+    const dt = new DataTransfer();
+    dt.setData("text/plain", "ammeter");
+    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: dt }));
+  }, dropCoords);
+
+  await expect(page.locator('[data-node]')).toHaveCount(4);
+  await expect(page.locator('[data-wire]')).toHaveCount(4);
+  await expect(page.locator(".wire-routing-error")).toHaveCount(0);
+  await page.locator("#run").click();
+  await expect(page.locator("#statusText")).toContainText(/Closed circuit|Mạch kín/);
+});
+
+
 
 
 

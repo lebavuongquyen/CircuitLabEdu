@@ -38,7 +38,7 @@ function insertComponentIntoWire(component,wirePaths=captureWirePaths(component.
     const wire=state.wires.find(item=>item.id===candidate.wire.id);
     if(!wire||wire.from.startsWith(component.id+":")||wire.to.startsWith(component.id+":"))continue;
     const nearest=nearestWirePoint(component.x,component.y,wire,candidate.points);
-    if(!nearest||nearest.distance>45)continue;
+    if(!nearest||nearest.distance>65)continue;
     if(!best||nearest.distance<best.nearest.distance){best={wire,nearest,points:candidate.points}}
   }
   if(!best)return false;
@@ -50,8 +50,16 @@ function insertComponentIntoWire(component,wirePaths=captureWirePaths(component.
   component.y=Math.round(nearest.point.y);
   const isVertical=Math.abs(nearest.dy)>Math.abs(nearest.dx);
   component.rotation=isVertical?90:0;
-  state.wires[i]={id:wire.id,from:wire.from,to:component.id+":a"};
-  state.wires.push({id:"w"+state.nextId++,from:component.id+":b",to:wire.to});
+  const pA=p(component,"a"),pB=p(component,"b");
+  const pFrom=tp(wire.from),pTo=tp(wire.to);
+  let termFrom="a",termTo="b";
+  if(pFrom&&pTo){
+    const dDirect=Math.hypot(pFrom.x-pA.x,pFrom.y-pA.y)+Math.hypot(pTo.x-pB.x,pTo.y-pB.y);
+    const dFlipped=Math.hypot(pFrom.x-pB.x,pFrom.y-pB.y)+Math.hypot(pTo.x-pA.x,pTo.y-pA.y);
+    if(dFlipped<dDirect){termFrom="b";termTo="a"}
+  }
+  state.wires[i]={id:wire.id,from:wire.from,to:component.id+":"+termFrom};
+  state.wires.push({id:"w"+state.nextId++,from:component.id+":"+termTo,to:wire.to});
   state.selected=component.id;
   state.selectedWire=null;
   state.pending=null;
@@ -135,12 +143,14 @@ function splitWireAtPoint(wireId,pt){const wire=state.wires.find(item=>item.id==
 let drag=null;
 $("#circuit").addEventListener("dblclick",e=>{const hit=e.target.closest("[data-wire]");if(!hit)return;e.preventDefault();e.stopPropagation();splitWireAtPoint(hit.dataset.wire,svgPoint(e))});
 $("#circuit").addEventListener("pointerdown",e=>{const rot=e.target.closest("[data-action='rotate']");if(rot){e.preventDefault();e.stopPropagation();rotateComponent(rot.dataset.nodeId);return}const term=e.target.closest("[data-terminal]");if(term){e.preventDefault();const k=term.dataset.terminal;if(!state.pending){state.pending=k;render()}else connect(state.pending,k);return}const wire=e.target.closest("[data-wire]");if(wire){state.selectedWire=wire.dataset.wire;state.pending=null;document.querySelectorAll(".wire-selected").forEach(el=>el.classList.remove("wire-selected"));wire.closest(".wire-group")?.classList.add("wire-selected");return}const node=e.target.closest("[data-node]");if(node){const c=cBy(node.dataset.node);state.selected=c.id;state.selectedWire=null;const pt=svgPoint(e);drag={id:c.id,dx:c.x-pt.x,dy:c.y-pt.y,x:pt.x,y:pt.y,moved:false,wirePaths:captureWirePaths(c.id),switchCandidate:c.type==="switch"&&!!e.target.closest(".body-wrap")};$("#circuit").setPointerCapture(e.pointerId);renderProps();return}state.pending=null});
-document.addEventListener("pointermove",e=>{if(!drag)return;const pt=svgPoint(e),c=cBy(drag.id);if(!c)return;if(Math.abs(pt.x-drag.x)+Math.abs(pt.y-drag.y)>8&&!drag.moved){snap();drag.moved=true}if(!drag.moved)return;c.x=Math.max(55,Math.min(845,pt.x+drag.dx));c.y=Math.max(65,Math.min(445,pt.y+drag.dy));render();const hasWires=state.wires.some(w=>w.from.startsWith(c.id+":")||w.to.startsWith(c.id+":"));if(!hasWires&&drag.wirePaths){for(const candidate of drag.wirePaths){const wire=state.wires.find(w=>w.id===candidate.wire.id);if(!wire)continue;const near=nearestWirePoint(c.x,c.y,wire,candidate.points);const group=document.querySelector('[data-wire-group="'+wire.id+'"]');if(group){if(near&&near.distance<=45)group.classList.add("wire-snap-candidate");else group.classList.remove("wire-snap-candidate")}}}});
+document.addEventListener("pointermove",e=>{if(!drag)return;const pt=svgPoint(e),c=cBy(drag.id);if(!c)return;if(Math.abs(pt.x-drag.x)+Math.abs(pt.y-drag.y)>8&&!drag.moved){snap();drag.moved=true}if(!drag.moved)return;c.x=Math.max(55,Math.min(845,pt.x+drag.dx));c.y=Math.max(65,Math.min(445,pt.y+drag.dy));render();const hasWires=state.wires.some(w=>w.from.startsWith(c.id+":")||w.to.startsWith(c.id+":"));if(!hasWires&&drag.wirePaths){for(const candidate of drag.wirePaths){const wire=state.wires.find(w=>w.id===candidate.wire.id);if(!wire)continue;const near=nearestWirePoint(c.x,c.y,wire,candidate.points);const group=document.querySelector('[data-wire-group="'+wire.id+'"]');if(group){if(near&&near.distance<=65)group.classList.add("wire-snap-candidate");else group.classList.remove("wire-snap-candidate")}}}});
 document.addEventListener("pointerup",()=>{document.querySelectorAll(".wire-snap-candidate").forEach(el=>el.classList.remove("wire-snap-candidate"));if(drag?.moved){const component=cBy(drag.id);if(component){const hasWires=state.wires.some(w=>w.from.startsWith(component.id+":")||w.to.startsWith(component.id+":"));if(!hasWires)insertComponentIntoWire(component,drag.wirePaths||captureWirePaths(component.id))}invalidateSimulation();render()}else if(drag?.switchCandidate){const c=cBy(drag.id);if(c){snap();c.closed=!c.closed;refreshAfterSwitchChange();render()}}drag=null});document.addEventListener("pointercancel",()=>{document.querySelectorAll(".wire-snap-candidate").forEach(el=>el.classList.remove("wire-snap-candidate"));drag=null});
 $("#circuit").addEventListener("keydown",e=>{if(e.key!=="Enter"&&e.key!==" ")return;const rot=e.target.closest("[data-action='rotate']");if(rot){e.preventDefault();rotateComponent(rot.dataset.nodeId);return}const term=e.target.closest("[data-terminal]");if(term){e.preventDefault();const k=term.dataset.terminal;if(!state.pending){state.pending=k;render()}else connect(state.pending,k);return}const node=e.target.closest("[data-node]");if(!node)return;e.preventDefault();const c=cBy(node.dataset.node);state.selected=c.id;state.selectedWire=null;if(c.type==="switch"){snap();c.closed=!c.closed;refreshAfterSwitchChange()}render()});
 document.addEventListener("keydown",e=>{if(!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)&&(e.key==="r"||e.key==="R")&&state.selected){e.preventDefault();rotateComponent(state.selected);return}if((e.key==="Delete"||e.key==="Backspace")&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){if(state.selectedWire){e.preventDefault();snap();state.wires=state.wires.filter(w=>w.id!==state.selectedWire);pruneOrphanJunctions();state.selectedWire=null;invalidateSimulation();render()}else if(state.selected){e.preventDefault();del(state.selected)}}});
 document.querySelectorAll(".component").forEach(el=>{el.addEventListener("dragstart",e=>{el.dataset.dragged="1";e.dataTransfer.setData("text/plain",el.dataset.type);e.dataTransfer.effectAllowed="copy"});el.addEventListener("click",()=>{if(el.dataset.dragged){delete el.dataset.dragged;return}addFromPalette(el.dataset.type)})});
-$("#canvasWrap").addEventListener("dragover",e=>{e.preventDefault();e.dataTransfer.dropEffect="copy"});$("#canvasWrap").addEventListener("drop",e=>{e.preventDefault();const ty=e.dataTransfer.getData("text/plain");if(!defaults[ty])return;const pt=svgPoint(e),wirePaths=captureWirePaths(),component=add(ty,Math.max(55,Math.min(845,Math.round(pt.x))),Math.max(65,Math.min(445,Math.round(pt.y))));if(insertComponentIntoWire(component,wirePaths)){invalidateSimulation();render()}});
+$("#canvasWrap").addEventListener("dragover",e=>{e.preventDefault();e.dataTransfer.dropEffect="copy";const pt=svgPoint(e);for(const item of captureWirePaths()){const near=nearestWirePoint(pt.x,pt.y,item.wire,item.points);const group=document.querySelector('[data-wire-group="'+item.wire.id+'"]');if(group){if(near&&near.distance<=65)group.classList.add("wire-snap-candidate");else group.classList.remove("wire-snap-candidate")}}});
+$("#canvasWrap").addEventListener("dragleave",()=>{document.querySelectorAll(".wire-snap-candidate").forEach(el=>el.classList.remove("wire-snap-candidate"))});
+$("#canvasWrap").addEventListener("drop",e=>{e.preventDefault();document.querySelectorAll(".wire-snap-candidate").forEach(el=>el.classList.remove("wire-snap-candidate"));const ty=e.dataTransfer.getData("text/plain");if(!defaults[ty])return;const pt=svgPoint(e),wirePaths=captureWirePaths(),component=add(ty,Math.max(55,Math.min(845,Math.round(pt.x))),Math.max(65,Math.min(445,Math.round(pt.y))));if(insertComponentIntoWire(component,wirePaths)){invalidateSimulation();render()}});
 $("#run").addEventListener("click",()=>{state.results=solveCircuit(state.components,state.wires,state.junctions);state.running=true;state.transientResults=null;$("#transientPanel").style.display="none";render()});
 function renderTransientChart(result){
   const select=$("#transientSignal");
