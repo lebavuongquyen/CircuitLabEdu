@@ -1314,5 +1314,17 @@ test("switch graphically renders open and closed blade positions without textual
   await expect(switchNode.locator(".node-value")).toHaveText("");
 });
 
+test("lamp glow is not rendered as a black circle when lit or unlit", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('.lesson[data-example="simple"]').click();
+  const lampNode = page.locator('[data-node="c3"]');
+  await expect(lampNode).toHaveClass(/lit/);
+  const glow = lampNode.locator(".glow");
+  const fill = await glow.evaluate(el => getComputedStyle(el).fill);
+  expect(fill).not.toBe("rgb(0, 0, 0)");
+  expect(fill).toContain("255");
+});
+
+
 
 
