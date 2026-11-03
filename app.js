@@ -99,11 +99,11 @@ function getComponentObstacles(wire, excludeComponentId = null) {
     const isConnB = wire.from === c.id + ":b" || wire.to === c.id + ":b";
     if (!isConnA && !isConnB) {
       const isRot = (c.rotation || 0) % 180 !== 0;
-      list.push(isRot ? { l: c.x - 26, r: c.x + 26, t: c.y - 48, b: c.y + 48 } : { l: c.x - 48, r: c.x + 48, t: c.y - 26, b: c.y + 26 });
+      list.push(isRot ? { l: c.x - 28, r: c.x + 28, t: c.y - 56, b: c.y + 56 } : { l: c.x - 56, r: c.x + 56, t: c.y - 28, b: c.y + 28 });
     } else {
       list.push({ l: c.x - 22, r: c.x + 22, t: c.y - 22, b: c.y + 22 });
-      if (!isConnA) { const ta = p(c, "a"); list.push({ l: ta.x - 12, r: ta.x + 12, t: ta.y - 12, b: ta.y + 12 }); }
-      if (!isConnB) { const tb = p(c, "b"); list.push({ l: tb.x - 12, r: tb.x + 12, t: tb.y - 12, b: tb.y + 12 }); }
+      if (!isConnA) { const ta = p(c, "a"); list.push({ l: ta.x - 14, r: ta.x + 14, t: ta.y - 14, b: ta.y + 14 }); }
+      if (!isConnB) { const tb = p(c, "b"); list.push({ l: tb.x - 14, r: tb.x + 14, t: tb.y - 14, b: tb.y + 14 }); }
     }
   }
   for (const j of state.junctions) {
@@ -116,6 +116,7 @@ function getComponentObstacles(wire, excludeComponentId = null) {
 function trimSegmentObstacle(u, v, endpoints, thickness = 4) {
   let minX = Math.min(u.x, v.x), maxX = Math.max(u.x, v.x);
   let minY = Math.min(u.y, v.y), maxY = Math.max(u.y, v.y);
+  const origL = minX, origR = maxX, origT = minY, origB = maxY;
   for (const pt of endpoints) {
     if (Math.hypot(u.x - pt.x, u.y - pt.y) < 6) {
       if (Math.abs(u.y - v.y) < 0.01) { if (v.x > u.x) minX += 10; else maxX -= 10; }
@@ -126,8 +127,8 @@ function trimSegmentObstacle(u, v, endpoints, thickness = 4) {
       else { if (u.y > v.y) minY += 10; else maxY -= 10; }
     }
   }
-  if (Math.abs(u.y - v.y) < 0.01 && maxX - minX > 2) return { l: minX, r: maxX, t: u.y - thickness, b: u.y + thickness };
-  if (Math.abs(u.x - v.x) < 0.01 && maxY - minY > 2) return { l: u.x - thickness, r: u.x + thickness, t: minY, b: maxY };
+  if (Math.abs(u.y - v.y) < 0.01) return { l: minX, r: maxX, t: u.y - thickness, b: u.y + thickness, type: "wire_h", exactY: u.y, origL, origR };
+  if (Math.abs(u.x - v.x) < 0.01) return { l: u.x - thickness, r: u.x + thickness, t: minY, b: maxY, type: "wire_v", exactX: u.x, origT, origB };
   return null;
 }
 function getPriorWireObstacles(priorRoutes, endpoints, thickness = 4) {

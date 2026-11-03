@@ -1,12 +1,17 @@
 function isSegmentBlocked(u, v, obstacles) {
+  const isH = Math.abs(u.y - v.y) < 0.01, isV = Math.abs(u.x - v.x) < 0.01;
+  if (!isH && !isV) return true;
   return obstacles.some(o => {
-    if (Math.abs(u.y - v.y) < 0.01) {
-      return u.y > o.t && u.y < o.b && Math.max(Math.min(u.x, v.x), o.l) < Math.min(Math.max(u.x, v.x), o.r);
+    if (o.type === "wire_h") {
+      if (isH && Math.abs(u.y - o.exactY) < 0.01 && Math.max(Math.min(u.x, v.x), o.origL) < Math.min(Math.max(u.x, v.x), o.origR) - 0.5) return true;
+      return isH && u.y > o.t && u.y < o.b && Math.max(Math.min(u.x, v.x), o.l) < Math.min(Math.max(u.x, v.x), o.r);
     }
-    if (Math.abs(u.x - v.x) < 0.01) {
-      return u.x > o.l && u.x < o.r && Math.max(Math.min(u.y, v.y), o.t) < Math.min(Math.max(u.y, v.y), o.b);
+    if (o.type === "wire_v") {
+      if (isV && Math.abs(u.x - o.exactX) < 0.01 && Math.max(Math.min(u.y, v.y), o.origT) < Math.min(Math.max(u.y, v.y), o.origB) - 0.5) return true;
+      return isV && u.x > o.l && u.x < o.r && Math.max(Math.min(u.y, v.y), o.t) < Math.min(Math.max(u.y, v.y), o.b);
     }
-    return true;
+    if (isH) return u.y > o.t && u.y < o.b && Math.max(Math.min(u.x, v.x), o.l) < Math.min(Math.max(u.x, v.x), o.r);
+    return u.x > o.l && u.x < o.r && Math.max(Math.min(u.y, v.y), o.t) < Math.min(Math.max(u.y, v.y), o.b);
   });
 }
 
@@ -57,6 +62,7 @@ function evaluateCandidate(points, obstacles) {
 function findFallbackRoute(start, end, obstacles) {
   const fallback = [
     [start, { x: 5, y: start.y }, { x: 5, y: end.y }, end],
+    [start, { x: 895, y: start.y }, { x: 895, y: end.y }, end],
     [start, { x: start.x, y: 5 }, { x: end.x, y: 5 }, end],
     [start, { x: start.x, y: 505 }, { x: end.x, y: 505 }, end]
   ];
