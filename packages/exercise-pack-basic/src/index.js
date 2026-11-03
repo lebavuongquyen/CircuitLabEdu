@@ -1,4 +1,4 @@
-import { validateCircuit } from "@circuitlabedu/core/solver";
+import { validateCircuit } from "@quyenlbv/core/solver";
 
 export const lessons = [
   {

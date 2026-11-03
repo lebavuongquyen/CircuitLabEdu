@@ -1,6 +1,6 @@
 {
-  "name": "@circuitlabedu/react",
-  "version": "0.1.1",
+  "name": "@quyenlbv/react",
+  "version": "0.1.2",
   "description": "Responsive React SVG viewport adapter for CircuitLab Edu",
   "type": "module",
   "main": "./src/index.js",
@@ -16,7 +16,7 @@
     }
   },
   "peerDependencies": {
-    "@circuitlabedu/core": "^0.1.1",
+    "@quyenlbv/core": "^0.1.2",
     "react": ">=18",
     "@types/react": ">=18"
   },

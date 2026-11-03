@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CircuitCanvas } from "@circuitlabedu/react";
+import { CircuitCanvas } from "@quyenlbv/react";
 
 test("CircuitCanvas renders a fixed logical SVG viewport", () => {
   const markup = renderToStaticMarkup(React.createElement(CircuitCanvas, { width: 600, height: 300, "data-testid": "canvas" }, React.createElement("circle", { cx: 20, cy: 20, r: 5 })));

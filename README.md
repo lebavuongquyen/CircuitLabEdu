@@ -6,16 +6,16 @@ A bilingual browser-based educational circuit builder for primary, lower-seconda
 
 The project is being separated into a framework-independent simulation package and a curriculum pack:
 
-- `packages/core` — `@circuitlabedu/core`: topology validation, static DC solving, transient RLC simulation and optional orthogonal wire-routing helper. It has no React or DOM dependency.
-- `packages/react` — `@circuitlabedu/react`: responsive React SVG viewport host with auto/fixed width and height, container resize observation and configurable aspect ratio/bounds. React is a peer dependency; TypeScript consumers also need `@types/react`.
-- `packages/exercise-pack-basic` — `@circuitlabedu/exercise-pack-basic`: bilingual example lessons, lesson schema validation and assessment.
+- `packages/core` — `@quyenlbv/core`: topology validation, static DC solving, transient RLC simulation and optional orthogonal wire-routing helper. It has no React or DOM dependency.
+- `packages/react` — `@quyenlbv/react`: responsive React SVG viewport host with auto/fixed width and height, container resize observation and configurable aspect ratio/bounds. React is a peer dependency; TypeScript consumers also need `@types/react`.
+- `packages/exercise-pack-basic` — `@quyenlbv/exercise-pack-basic`: bilingual example lessons, lesson schema validation and assessment.
 - Root-level `solver.js`, `transient.js`, `wire-router.js` and `lessons.js` remain compatibility entry points for the existing browser application during migration.
 
 From the repository root, the workspace packages can be imported as:
 
 ```js
-import { solveCircuit, validateCircuit, simulateTransient } from "@circuitlabedu/core";
-import { lessons, validateLesson, assessCircuit } from "@circuitlabedu/exercise-pack-basic";
+import { solveCircuit, validateCircuit, simulateTransient } from "@quyenlbv/core";
+import { lessons, validateLesson, assessCircuit } from "@quyenlbv/exercise-pack-basic";
 ```
 
 See [Core package guide](packages/core/README.md), [React viewport guide](packages/react/README.md), [Exercise pack authoring guide](docs/EXERCISE_PACK_AUTHORING.md) and [React UI Lab](docs/REACT-UI-LAB.md). Learning content and sequencing are application-level concerns: the core solver does not define lesson order or a required learning flow. Packs can be supplied by packages or loaded as JSON. The pack's legacy `example` preset references are still app-specific; use self-contained `startingCircuit` fixtures when authoring portable exercises.

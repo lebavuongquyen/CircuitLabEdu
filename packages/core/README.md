@@ -1,17 +1,17 @@
-# @circuitlabedu/core
+# @quyenlbv/core
 
 Framework-independent electrical circuit validation and simulation primitives for Node.js and browser applications.
 
 ## Install
 
 ```sh
-npm install @circuitlabedu/core
+npm install @quyenlbv/core
 ```
 
 ## Public API
 
 ```js
-import { solveCircuit, validateCircuit, simulateTransient } from "@circuitlabedu/core";
+import { solveCircuit, validateCircuit, simulateTransient } from "@quyenlbv/core";
 ```
 
 - `validateCircuit(components, wires, junctions = [])` checks supported component data and topology. Returns `{ valid, errors, warnings }`.

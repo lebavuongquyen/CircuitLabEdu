@@ -1,6 +1,6 @@
 {
-  "name": "@circuitlabedu/core",
-  "version": "0.1.1",
+  "name": "@quyenlbv/core",
+  "version": "0.1.2",
   "description": "Framework-independent circuit model validation and electrical simulation engine for CircuitLabEdu",
   "type": "module",
   "main": "./src/index.js",

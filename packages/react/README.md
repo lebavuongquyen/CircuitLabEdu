@@ -1,11 +1,11 @@
-# @circuitlabedu/react
+# @quyenlbv/react
 
-Responsive React SVG viewport adapter for CircuitLab Edu. The simulation engine remains framework-independent in `@circuitlabedu/core`; this package provides a responsive SVG host for React applications.
+Responsive React SVG viewport adapter for CircuitLab Edu. The simulation engine remains framework-independent in `@quyenlbv/core`; this package provides a responsive SVG host for React applications.
 
 ## Install
 
 ```sh
-npm install @circuitlabedu/core @circuitlabedu/react react
+npm install @quyenlbv/core @quyenlbv/react react
 ```
 
 React is a peer dependency. This package does not bundle React. TypeScript consumers should also have `@types/react` installed.
@@ -13,7 +13,7 @@ React is a peer dependency. This package does not bundle React. TypeScript consu
 ## Quick start
 
 ```jsx
-import { CircuitCanvas } from "@circuitlabedu/react";
+import { CircuitCanvas } from "@quyenlbv/react";
 
 export function ExampleCircuit() {
   return (
@@ -86,4 +86,4 @@ The child render function receives the current logical `width`, `height`, `pixel
 
 ## Core sizing helper
 
-Non-React integrations can use `normalizeViewportConfig` and `resolveViewportSize` from `@circuitlabedu/core` to normalize options and resolve measured dimensions without importing React or touching the DOM.
+Non-React integrations can use `normalizeViewportConfig` and `resolveViewportSize` from `@quyenlbv/core` to normalize options and resolve measured dimensions without importing React or touching the DOM.

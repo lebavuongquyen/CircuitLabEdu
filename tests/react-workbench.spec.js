@@ -8,7 +8,7 @@ test('React workbench mounts with lessons supplied by an external package and no
   await page.goto(labUrl);
   await expect(page.getByRole('heading', { name: 'Phòng thử nghiệm React' })).toBeVisible();
   await expect(page.locator('#lesson-select option')).toHaveCount(20);
-  await expect(page.getByTestId('pack-status')).toContainText('@circuitlabedu/exercise-pack-basic');
+  await expect(page.getByTestId('pack-status')).toContainText('@quyenlbv/exercise-pack-basic');
   await expect(page.getByTestId('canvas-frame').locator('svg')).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -75,7 +75,7 @@ test('invalid external pack is rejected while current pack remains available', a
   await page.goto(labUrl);
   await page.locator('#pack-file').setInputFiles({ name: 'bad-pack.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ lessons: [{ id: 'bad' }] })) });
   await expect(page.locator('.notice')).toContainText('Pack không hợp lệ');
-  await expect(page.getByTestId('pack-status')).toContainText('@circuitlabedu/exercise-pack-basic');
+  await expect(page.getByTestId('pack-status')).toContainText('@quyenlbv/exercise-pack-basic');
   await expect(page.locator('#lesson-select option')).toHaveCount(20);
 });
 
@@ -107,7 +107,7 @@ test('duplicate lesson IDs are rejected and the active pack is preserved', async
     buffer: Buffer.from(JSON.stringify({ lessons: [lesson, { ...lesson, title: { vi: 'Bài khác', en: 'Another lesson' } }] }))
   });
   await expect(page.locator('.notice')).toContainText('Pack không hợp lệ');
-  await expect(page.getByTestId('pack-status')).toContainText('@circuitlabedu/exercise-pack-basic');
+  await expect(page.getByTestId('pack-status')).toContainText('@quyenlbv/exercise-pack-basic');
   await expect(page.locator('#lesson-select option')).toHaveCount(20);
 });
 

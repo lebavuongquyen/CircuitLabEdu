@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CircuitCanvas } from '@circuitlabedu/react';
-import { solveCircuit, simulateTransient } from '@circuitlabedu/core';
-import { lessons as basicLessons, validateLesson, assessCircuit } from '@circuitlabedu/exercise-pack-basic';
+import { CircuitCanvas } from '@quyenlbv/react';
+import { solveCircuit, simulateTransient } from '@quyenlbv/core';
+import { lessons as basicLessons, validateLesson, assessCircuit } from '@quyenlbv/exercise-pack-basic';
 import './styles.css';
 
 const copy = {
@@ -66,7 +66,7 @@ function getLessonCircuit(lesson) {
 function App() {
   const [language, setLanguage] = useState('vi');
   const t = copy[language];
-  const [pack, setPack] = useState({ name: '@circuitlabedu/exercise-pack-basic', lessons: basicLessons });
+  const [pack, setPack] = useState({ name: '@quyenlbv/exercise-pack-basic', lessons: basicLessons });
   const [selectedId, setSelectedId] = useState(basicLessons[0]?.id ?? '');
   const [circuit, setCircuit] = useState(() => getLessonCircuit(basicLessons[0]));
   const [selectedComponentId, setSelectedComponentId] = useState(() => getLessonCircuit(basicLessons[0]).components.find(component => ['resistor', 'lamp'].includes(component.type))?.id ?? getLessonCircuit(basicLessons[0]).components[0]?.id ?? '');
@@ -161,7 +161,7 @@ function App() {
         </section>
       </section>
     </main>
-    <footer>React UI lab · Uses <code>@circuitlabedu/core</code> and <code>@circuitlabedu/exercise-pack-basic</code> · Not a production CAD tool</footer>
+    <footer>React UI lab · Uses <code>@quyenlbv/core</code> and <code>@quyenlbv/exercise-pack-basic</code> · Not a production CAD tool</footer>
   </div>;
 }
 
