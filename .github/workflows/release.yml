@@ -27,7 +27,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
@@ -57,7 +56,15 @@ jobs:
           ls -lh dist-release
 
       - name: Publish packages to NPM
-        run: npm publish --workspaces --access public --provenance
+        run: |
+          if [ -n "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+            npm publish --workspaces --access public --provenance
+          else
+            npm publish --workspace packages/core --access public --provenance
+            npm publish --workspace packages/exercise-pack-basic --access public --provenance || true
+            npm publish --workspace packages/react --access public --provenance || true
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
