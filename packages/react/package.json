@@ -1,10 +1,14 @@
 {
   "name": "@circuitlabedu/react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Responsive React SVG viewport adapter for CircuitLab Edu",
   "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
+  "files": [
+    "src",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
@@ -12,11 +16,15 @@
     }
   },
   "peerDependencies": {
-    "@circuitlabedu/core": "^0.1.0",
+    "@circuitlabedu/core": "^0.1.1",
     "react": ">=18",
     "@types/react": ">=18"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT"
 }

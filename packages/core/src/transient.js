@@ -1,218 +1,244 @@
 import { validateCircuit } from "./solver.js";
+import {
+  MIN_RESISTANCE,
+  SWITCH_RESISTANCE,
+  AMMETER_RESISTANCE,
+  VOLTMETER_RESISTANCE,
+} from "./constants.js";
+import { gaussian, createUnionFind } from "./math-utils.js";
 
-const MIN_RESISTANCE = 1e-9;
-const SWITCH_RESISTANCE = 1e-3;
-const AMMETER_RESISTANCE = 1e-3;
-const VOLTMETER_RESISTANCE = 1e9;
+const SUPPORTED = new Set(["battery", "acSource", "resistor", "lamp", "switch", "ammeter", "voltmeter", "capacitor", "inductor"]);
 
-export function simulateTransient(components, wires, options = {}, junctions = []) {
-  if (!Array.isArray(components) || !Array.isArray(wires) || !Array.isArray(junctions)) return fail("invalid-input", "Components, wires and junctions must all be arrays.");
-  if (options === null || typeof options !== "object" || Array.isArray(options)) return fail("invalid-options", "Simulation options must be an object.");
-  if (components.length > 200 || wires.length > 1000) return fail("complexity-limit", "Transient simulation is limited to 200 components and 1,000 wires.");
-  const duration = Number(options.duration ?? 1);
-  const step = Number(options.step ?? 0.001);
-  if (!Number.isFinite(duration) || duration <= 0 || duration > 1000) return fail("invalid-duration", "Duration must be greater than 0 and at most 1000 seconds.");
-  if (!Number.isFinite(step) || step <= 0 || step > duration || Math.ceil(duration / step - Number.EPSILON * Math.max(1, duration / step) * 8) > 199999) return fail("invalid-step", "Choose a positive time step no greater than the duration and no more than 200,000 samples, including the initial state.");
-  const supported = new Set(["battery", "acSource", "resistor", "lamp", "switch", "ammeter", "voltmeter", "capacitor", "inductor"]);
-  if (!components.length || components.some(c => !c || typeof c !== "object" || !supported.has(c.type))) return fail("unsupported-component", "This transient solver supports linear DC sources, resistive devices, capacitors and inductors.");
-  const validation = validateCircuit(components, wires, junctions);
-  if (!validation.valid) return fail("invalid-topology", validation.errors[0].message, validation);
-  const sources = components.filter(c => c.type === "battery" || c.type === "acSource");
-  const capacitors = components.filter(c => c.type === "capacitor");
-  const inductors = components.filter(c => c.type === "inductor");
-  if (!sources.length) return fail("no-source", "Add a DC or AC voltage source.");
-  if (!capacitors.length && !inductors.length && !sources.some(c => c.type === "acSource")) return fail("no-storage", "Add an AC source, capacitor or inductor to run transient simulation.");
+function fail(reason, message, validation) {
+  return { ok: false, reason, message, validation, samples: [] };
+}
 
-  const parent = new Map();
-  for (const c of components) for (const side of ["a", "b"]) parent.set(c.id + ":" + side, c.id + ":" + side);
-  for (const j of junctions) parent.set("j:" + j.id, "j:" + j.id);
-  const find = key => {
-    let x = key;
-    while (parent.get(x) !== x) x = parent.get(x);
-    let current = key;
-    while (parent.get(current) !== current) {
-      const next = parent.get(current);
-      parent.set(current, x);
-      current = next;
-    }
-    return x;
-  };
-  for (const w of wires) {
-    const a = find(w.from), b = find(w.to);
-    if (a !== b) parent.set(b, a);
+function sourceVoltage(source, time) {
+  if (source.type === "battery") return Number(source.voltage);
+  const phase = Number(source.phase ?? 0) * Math.PI / 180;
+  return Number(source.offset ?? 0) + Number(source.amplitude) * Math.sin(2 * Math.PI * Number(source.frequency) * time + phase);
+}
+
+function validateBasicTransient(components, wires, options, junctions) {
+  if (!Array.isArray(components) || !Array.isArray(wires) || !Array.isArray(junctions)) {
+    return fail("invalid-input", "Components, wires and junctions must all be arrays.");
   }
-  const edges = components.map(c => ({ c, a: find(c.id + ":a"), b: find(c.id + ":b") }));
-  if (edges.some(e => (e.c.type === "battery" || e.c.type === "acSource") && e.a === e.b)) return fail("short-source", "A voltage source is directly shorted by an ideal wire.", validation);
+  if (options === null || typeof options !== "object" || Array.isArray(options)) {
+    return fail("invalid-options", "Simulation options must be an object.");
+  }
+  if (components.length > 200 || wires.length > 1000) {
+    return fail("complexity-limit", "Transient simulation is limited to 200 components and 1,000 wires.");
+  }
+  const duration = Number(options.duration ?? 1), step = Number(options.step ?? 0.001);
+  if (!Number.isFinite(duration) || duration <= 0 || duration > 1000) {
+    return fail("invalid-duration", "Duration must be greater than 0 and at most 1000 seconds.");
+  }
+  if (!Number.isFinite(step) || step <= 0 || step > duration || Math.ceil(duration / step - Number.EPSILON * Math.max(1, duration / step) * 8) > 199999) {
+    return fail("invalid-step", "Choose a positive time step no greater than the duration and no more than 200,000 samples, including the initial state.");
+  }
+  if (!components.length || components.some(c => !c || typeof c !== "object" || !SUPPORTED.has(c.type))) {
+    return fail("unsupported-component", "This transient solver supports linear DC sources, resistive devices, capacitors and inductors.");
+  }
+  return null;
+}
 
-  const nodes = [...new Set(edges.flatMap(e => [e.a, e.b]))];
-  const reference = edges.find(e => e.c.type === "battery" || e.c.type === "acSource").b;
-  const nodeList = nodes.filter(n => n !== reference);
-  const index = new Map(nodeList.map((n, i) => [n, i]));
-  const n = nodeList.length, m = sources.length, size = n + m;
-  const sourceEdges = sources.map(c => edges.find(e => e.c.id === c.id));
-  const previousCapVoltage = new Map(capacitors.map(c => [c.id, Number(c.initialVoltage ?? 0)]));
-  const previousInductorCurrent = new Map(inductors.map(c => [c.id, Number(c.initialCurrent ?? 0)]));
-  for (const c of capacitors) if (!Number.isFinite(previousCapVoltage.get(c.id)) || Math.abs(previousCapVoltage.get(c.id)) > 1000 || !Number.isFinite(Number(c.capacitance)) || Number(c.capacitance) < 1e-9 || Number(c.capacitance) > 1e6) return fail("invalid-capacitance", "Capacitance must be between 1e-9 and 1e6 F, and initial voltage must be finite within ±1000 V.");
-  for (const c of inductors) if (!Number.isFinite(previousInductorCurrent.get(c.id)) || Math.abs(previousInductorCurrent.get(c.id)) > 1000 || !Number.isFinite(Number(c.inductance)) || Number(c.inductance) < 1e-9 || Number(c.inductance) > 1e6) return fail("invalid-inductance", "Inductance must be between 1e-9 and 1e6 H, and initial current must be finite within ±1000 A.");
-  for (const inductor of inductors) {
-    if (Math.abs(previousInductorCurrent.get(inductor.id)) <= 1e-12) continue;
-    const branch = edges.find(e => e.c.id === inductor.id);
-    if (!hasAlternateConductingPath(edges, branch, components)) {
-      return fail("inductor-current-path-open", `Inductor ${inductor.id} has non-zero initial current but no closed conducting path. Add a freewheel/flyback diode, clamp, snubber, or another physically modeled current path before opening the circuit.`, validation);
+function validateStorageParams(capacitors, inductors, edges, components, prevCapV, prevIndI, validation) {
+  for (const c of capacitors) {
+    const v0 = prevCapV.get(c.id), val = Number(c.capacitance);
+    if (!Number.isFinite(v0) || Math.abs(v0) > 1000 || !Number.isFinite(val) || val < 1e-9 || val > 1e6) {
+      return fail("invalid-capacitance", "Capacitance must be between 1e-9 and 1e6 F, and initial voltage must be finite within ±1000 V.", validation);
     }
   }
-  for (const c of components) {
-    if (c.type === "battery" && (!Number.isFinite(Number(c.voltage)) || Number(c.voltage) < 0)) return fail("invalid-voltage", "Source voltage must be finite and non-negative.");
-    if (c.type === "acSource" && (![c.amplitude, c.frequency, c.phase, c.offset].every(v => Number.isFinite(Number(v))) || Number(c.amplitude) < 0 || Number(c.frequency) <= 0 || Number(c.frequency) > 100000 || Math.abs(Number(c.phase)) > 360000 || Math.abs(Number(c.offset)) > 1000 || Number(c.amplitude) > 1000)) return fail("invalid-ac-source", "AC amplitude and offset must be within 0–1000 V, frequency within (0, 100000] Hz, and phase within ±360000 degrees.");
-    if (["resistor", "lamp"].includes(c.type) && (!Number.isFinite(Number(c.resistance)) || Number(c.resistance) <= 0)) return fail("invalid-resistance", "Resistance must be finite and positive.");
+  for (const c of inductors) {
+    const i0 = prevIndI.get(c.id), val = Number(c.inductance);
+    if (!Number.isFinite(i0) || Math.abs(i0) > 1000 || !Number.isFinite(val) || val < 1e-9 || val > 1e6) {
+      return fail("invalid-inductance", "Inductance must be between 1e-9 and 1e6 H, and initial current must be finite within ±1000 A.", validation);
+    }
+    if (Math.abs(i0) > 1e-12 && !hasAlternateConductingPath(edges, edges.find(e => e.c.id === c.id), components)) {
+      return fail("inductor-current-path-open", `Inductor ${c.id} has non-zero initial current but no closed conducting path. Add a freewheel/flyback diode, clamp, snubber, or another physically modeled current path before opening the circuit.`, validation);
+    }
   }
+  return null;
+}
 
+function computeTransientWarnings(components, sources, capacitors, inductors, step) {
   const resistances = components.filter(c => ["resistor", "lamp"].includes(c.type)).map(c => Number(c.resistance));
   const rcRates = capacitors.flatMap(c => resistances.map(r => 1 / (r * Number(c.capacitance))));
   const rlRates = inductors.flatMap(c => resistances.map(r => r / Number(c.inductance)));
   const rlcRates = capacitors.flatMap(c => inductors.map(l => Math.sqrt(1 / (Number(l.inductance) * Number(c.capacitance)))));
-  const fastestDynamicRate = Math.max(0, ...rcRates, ...rlRates, ...rlcRates);
-  const fastestAcAngularRate = Math.max(0, ...sources.filter(c => c.type === "acSource").map(c => 2 * Math.PI * Number(c.frequency)));
-  const accuracyWarnings = [];
-  if (step * fastestDynamicRate > 0.05) accuracyWarnings.push("transientStepCoarse");
-  if (step * fastestAcAngularRate > 0.5) accuracyWarnings.push("acSamplingCoarse");
-  if (sources.length > 1) accuracyWarnings.push("multiSourceTransientSummaryUnavailable");
+  const fastestDyn = Math.max(0, ...rcRates, ...rlRates, ...rlcRates);
+  const fastestAc = Math.max(0, ...sources.filter(c => c.type === "acSource").map(c => 2 * Math.PI * Number(c.frequency)));
+  const warnings = [];
+  if (step * fastestDyn > 0.05) warnings.push("transientStepCoarse");
+  if (step * fastestAc > 0.5) warnings.push("acSamplingCoarse");
+  if (sources.length > 1) warnings.push("multiSourceTransientSummaryUnavailable");
+  return warnings;
+}
 
-  const nodeVoltage = (node, solution) => node === reference ? 0 : (solution[index.get(node)] ?? 0);
-  const conductance = c => c.type === "switch" ? (c.closed ? 1 / SWITCH_RESISTANCE : 0) : c.type === "ammeter" ? 1 / AMMETER_RESISTANCE : c.type === "voltmeter" ? 1 / VOLTMETER_RESISTANCE : 1 / Math.max(MIN_RESISTANCE, Number(c.resistance));
-  const storage = [...capacitors, ...inductors];
-  const firstCap = capacitors[0], firstInductor = inductors[0];
-  const initialReadings = Object.fromEntries(edges.map(({ c }) => {
-    const isCapacitor = c.type === "capacitor";
-    const isInductor = c.type === "inductor";
-    const isSource = c.type === "battery" || c.type === "acSource";
-    const initialVoltage = isCapacitor ? previousCapVoltage.get(c.id) : isSource ? sourceVoltage(c, 0) : null;
-    const initialCurrent = isInductor ? previousInductorCurrent.get(c.id) : null;
-    return [c.id, {
-      voltage: Number.isFinite(initialVoltage) ? Math.abs(initialVoltage) : null,
-      signedVoltage: initialVoltage,
-      current: Number.isFinite(initialCurrent) ? Math.abs(initialCurrent) : null,
-      signedCurrent: initialCurrent,
-      signedPower: null,
-      power: null,
-      initialized: isCapacitor || isInductor || isSource
-    }];
-  }));
-  const samples = [{
-    time: 0,
-    voltage: sources.length === 1 ? sourceVoltage(sources[0], 0) : null,
-    current: null,
-    storageVoltage: firstCap ? previousCapVoltage.get(firstCap.id) : 0,
-    storageCurrent: firstInductor ? previousInductorCurrent.get(firstInductor.id) : 0,
-    sourcePower: null,
-    components: initialReadings
-  }];
+function buildInitialReadings(edges, sources, capacitors, inductors, prevCapV, prevIndI) {
+  const readings = {};
+  for (const { c } of edges) {
+    const isCap = c.type === "capacitor", isInd = c.type === "inductor", isSrc = c.type === "battery" || c.type === "acSource";
+    const initV = isCap ? prevCapV.get(c.id) : isSrc ? sourceVoltage(c, 0) : null;
+    const initI = isInd ? prevIndI.get(c.id) : null;
+    readings[c.id] = {
+      voltage: Number.isFinite(initV) ? Math.abs(initV) : null, signedVoltage: initV,
+      current: Number.isFinite(initI) ? Math.abs(initI) : null, signedCurrent: initI,
+      signedPower: null, power: null, initialized: isCap || isInd || isSrc
+    };
+  }
+  return readings;
+}
 
-  const stepCount = duration / step;
-  const count = Math.ceil(stepCount - Number.EPSILON * Math.max(1, stepCount) * 8);
-  if (Math.pow(Math.max(1, components.length), 3) * count > 50000000) return fail("complexity-limit", "This circuit and time step exceed the simulation work limit. Reduce circuit size or increase the time step.");
-  for (let sampleIndex = 1; sampleIndex <= count; sampleIndex++) {
-    const time = Math.min(sampleIndex * step, duration);
-    const deltaTime = time - samples[samples.length - 1].time;
-    const matrix = Array.from({ length: size }, () => Array(size + 1).fill(0));
-    const addConductance = (a, b, g) => {
-      if (!g) return;
-      const ia = index.get(a), ib = index.get(b);
-      if (ia !== undefined) matrix[ia][ia] += g;
-      if (ib !== undefined) matrix[ib][ib] += g;
-      if (ia !== undefined && ib !== undefined) {
-        matrix[ia][ib] -= g;
-        matrix[ib][ia] -= g;
-      }
-    };
-    const addCurrentSourceRhs = (a, b, current) => {
-      const ia = index.get(a), ib = index.get(b);
-      if (ia !== undefined) matrix[ia][size] -= current;
-      if (ib !== undefined) matrix[ib][size] += current;
-    };
-    for (const e of edges) {
-      const c = e.c;
-      if (c.type === "battery" || c.type === "acSource" || (c.type === "switch" && !c.closed)) continue;
-      if (["resistor", "lamp", "switch", "ammeter", "voltmeter"].includes(c.type)) {
-        addConductance(e.a, e.b, conductance(c));
-      } else if (c.type === "capacitor") {
-        const g = Number(c.capacitance) / deltaTime;
-        addConductance(e.a, e.b, g);
-        addCurrentSourceRhs(e.a, e.b, -g * previousCapVoltage.get(c.id));
-      } else if (c.type === "inductor") {
-        const g = deltaTime / Number(c.inductance);
-        addConductance(e.a, e.b, g);
-        addCurrentSourceRhs(e.a, e.b, previousInductorCurrent.get(c.id));
-      }
+function conductance(c) {
+  if (c.type === "switch") return c.closed ? 1 / SWITCH_RESISTANCE : 0;
+  if (c.type === "ammeter") return 1 / AMMETER_RESISTANCE;
+  if (c.type === "voltmeter") return 1 / VOLTMETER_RESISTANCE;
+  return 1 / Math.max(MIN_RESISTANCE, Number(c.resistance));
+}
+
+function buildStepMatrix(edges, sourceEdges, index, n, size, deltaTime, prevCapV, prevIndI, time) {
+  const matrix = Array.from({ length: size }, () => Array(size + 1).fill(0));
+  const addG = (a, b, g) => {
+    if (!g) return;
+    const ia = index.get(a), ib = index.get(b);
+    if (ia !== undefined) matrix[ia][ia] += g;
+    if (ib !== undefined) matrix[ib][ib] += g;
+    if (ia !== undefined && ib !== undefined) { matrix[ia][ib] -= g; matrix[ib][ia] -= g; }
+  };
+  const addI = (a, b, current) => {
+    const ia = index.get(a), ib = index.get(b);
+    if (ia !== undefined) matrix[ia][size] -= current;
+    if (ib !== undefined) matrix[ib][size] += current;
+  };
+  for (const e of edges) {
+    const c = e.c;
+    if (c.type === "battery" || c.type === "acSource" || (c.type === "switch" && !c.closed)) continue;
+    if (["resistor", "lamp", "switch", "ammeter", "voltmeter"].includes(c.type)) addG(e.a, e.b, conductance(c));
+    else if (c.type === "capacitor") { const g = Number(c.capacitance) / deltaTime; addG(e.a, e.b, g); addI(e.a, e.b, -g * prevCapV.get(c.id)); }
+    else if (c.type === "inductor") { const g = deltaTime / Number(c.inductance); addG(e.a, e.b, g); addI(e.a, e.b, prevIndI.get(c.id)); }
+  }
+  sourceEdges.forEach((e, k) => {
+    const row = n + k, ia = index.get(e.a), ib = index.get(e.b);
+    if (ia !== undefined) { matrix[ia][row] += 1; matrix[row][ia] += 1; }
+    if (ib !== undefined) { matrix[ib][row] -= 1; matrix[row][ib] -= 1; }
+    matrix[row][size] = sourceVoltage(e.c, time);
+  });
+  return matrix;
+}
+
+function solveStepReadings(edges, sourceEdges, srcIdxMap, solution, index, reference, n, deltaTime, prevCapV, prevIndI, time) {
+  const nodeV = node => node === reference ? 0 : (solution[index.get(node)] ?? 0);
+  const readings = {};
+  let sourcePower = 0, sourceCurrent = 0;
+  for (const e of edges) {
+    const c = e.c, v = nodeV(e.a) - nodeV(e.b);
+    let current = 0;
+    if (c.type === "battery" || c.type === "acSource") {
+      current = solution[n + srcIdxMap.get(c.id)] || 0;
+      sourcePower += -sourceVoltage(c, time) * current;
+      sourceCurrent = Math.max(sourceCurrent, Math.abs(current));
+    } else if (c.type === "switch" && !c.closed) {
+      current = 0;
+    } else if (["resistor", "lamp", "switch", "ammeter", "voltmeter"].includes(c.type)) {
+      current = v * conductance(c);
+    } else if (c.type === "capacitor") {
+      current = Number(c.capacitance) / deltaTime * (v - prevCapV.get(c.id));
+      prevCapV.set(c.id, v);
+    } else if (c.type === "inductor") {
+      current = prevIndI.get(c.id) + deltaTime / Number(c.inductance) * v;
+      prevIndI.set(c.id, current);
     }
-    sourceEdges.forEach((e, k) => {
-      const row = n + k, ia = index.get(e.a), ib = index.get(e.b);
-      if (ia !== undefined) { matrix[ia][row] += 1; matrix[row][ia] += 1; }
-      if (ib !== undefined) { matrix[ib][row] -= 1; matrix[row][ib] -= 1; }
-      matrix[row][size] = sourceVoltage(e.c, time);
-    });
+    const signedPower = c.type === "battery" || c.type === "acSource" ? -v * current : v * current;
+    readings[c.id] = { voltage: Math.abs(v), signedVoltage: v, current: Math.abs(current), signedCurrent: current, signedPower, power: Math.max(0, signedPower) };
+  }
+  return { readings, sourcePower, sourceCurrent };
+}
+
+function checkStepKcl(edges, readings) {
+  const nodeBal = new Map();
+  let maxI = 0;
+  for (const e of edges) {
+    const cur = readings[e.c.id]?.signedCurrent || 0;
+    maxI = Math.max(maxI, Math.abs(cur));
+    nodeBal.set(e.a, (nodeBal.get(e.a) || 0) + cur);
+    nodeBal.set(e.b, (nodeBal.get(e.b) || 0) - cur);
+  }
+  const kclResidual = Math.max(0, ...[...nodeBal.values()].map(v => Math.abs(v)));
+  return kclResidual <= Math.max(1e-15, maxI * 1e-6);
+}
+
+function buildTransientTopology(components, wires, junctions) {
+  const uf = createUnionFind([...components.flatMap(c => [c.id + ":a", c.id + ":b"]), ...junctions.map(j => "j:" + j.id)]);
+  for (const w of wires) uf.union(w.from, w.to);
+  const edges = components.map(c => ({ c, a: uf.find(c.id + ":a"), b: uf.find(c.id + ":b") }));
+  const sources = components.filter(c => c.type === "battery" || c.type === "acSource");
+  const capacitors = components.filter(c => c.type === "capacitor");
+  const inductors = components.filter(c => c.type === "inductor");
+  const sourceEdges = sources.map(c => edges.find(e => e.c.id === c.id));
+  const srcIdxMap = new Map(sourceEdges.map((s, idx) => [s.c.id, idx]));
+  const reference = sourceEdges[0]?.b;
+  const nodeList = [...new Set(edges.flatMap(e => [e.a, e.b]))].filter(n => n !== reference);
+  const index = new Map(nodeList.map((n, i) => [n, i]));
+  return { edges, sources, capacitors, inductors, sourceEdges, srcIdxMap, reference, nodeList, index };
+}
+
+function executeTransientLoop(count, step, duration, topo, prevCapV, prevIndI, samples, validation) {
+  const { edges, sourceEdges, srcIdxMap, reference, nodeList, index } = topo;
+  const n = nodeList.length, m = sourceEdges.length, size = n + m;
+  const firstCap = topo.capacitors[0], firstInd = topo.inductors[0];
+  for (let sIdx = 1; sIdx <= count; sIdx++) {
+    const time = Math.min(sIdx * step, duration), deltaTime = time - samples[samples.length - 1].time;
+    const matrix = buildStepMatrix(edges, sourceEdges, index, n, size, deltaTime, prevCapV, prevIndI, time);
     const solution = gaussian(matrix);
     if (!solution) return fail("singular", "The transient network is floating or inconsistent. Check its topology and source constraints.", validation);
-    const maximumSourceVoltageResidual = Math.max(0, ...sourceEdges.map(e => Math.abs(nodeVoltage(e.a, solution) - nodeVoltage(e.b, solution) - sourceVoltage(e.c, time))));
-    const maximumSourceVoltage = Math.max(0, ...sourceEdges.map(e => Math.abs(sourceVoltage(e.c, time))));
-    if (maximumSourceVoltageResidual > Math.max(1e-9, maximumSourceVoltage * 1e-8)) return fail("numerical-instability", "The transient solution does not satisfy the voltage-source constraints within the accuracy tolerance.", validation);
-    const readings = {};
-    let sourcePower = 0;
-    let sourceCurrent = 0;
-    for (const e of edges) {
-      const c = e.c;
-      const v = nodeVoltage(e.a, solution) - nodeVoltage(e.b, solution);
-      let current = 0;
-      if (c.type === "battery" || c.type === "acSource") {
-        current = solution[n + sourceEdges.findIndex(source => source.c.id === c.id)] || 0;
-        sourcePower += -sourceVoltage(c, time) * current;
-        sourceCurrent = Math.max(sourceCurrent, Math.abs(current));
-      } else if (c.type === "switch" && !c.closed) {
-        current = 0;
-      } else if (["resistor", "lamp", "switch", "ammeter", "voltmeter"].includes(c.type)) {
-        current = v * conductance(c);
-      } else if (c.type === "capacitor") {
-        current = Number(c.capacitance) / deltaTime * (v - previousCapVoltage.get(c.id));
-        previousCapVoltage.set(c.id, v);
-      } else if (c.type === "inductor") {
-        current = previousInductorCurrent.get(c.id) + deltaTime / Number(c.inductance) * v;
-        previousInductorCurrent.set(c.id, current);
-      }
-      const signedPower = c.type === "battery" || c.type === "acSource" ? -v * current : v * current;
-      readings[c.id] = { voltage: Math.abs(v), signedVoltage: v, current: Math.abs(current), signedCurrent: current, signedPower, power: Math.max(0, signedPower) };
-    }
-    const nodeCurrentBalance = new Map();
-    let maximumBranchCurrent = 0;
-    for (const e of edges) {
-      const current = readings[e.c.id]?.signedCurrent || 0;
-      maximumBranchCurrent = Math.max(maximumBranchCurrent, Math.abs(current));
-      nodeCurrentBalance.set(e.a, (nodeCurrentBalance.get(e.a) || 0) + current);
-      nodeCurrentBalance.set(e.b, (nodeCurrentBalance.get(e.b) || 0) - current);
-    }
-    const kclResidual = Math.max(0, ...[...nodeCurrentBalance.values()].map(value => Math.abs(value)));
-    const kclTolerance = Math.max(1e-15, maximumBranchCurrent * 1e-6);
-    if (kclResidual > kclTolerance) {
-      return fail("numerical-instability", "The transient solution does not satisfy Kirchhoff's current law within the accuracy tolerance. Adjust component values or use a better-conditioned circuit model.", validation);
-    }
-    for (const c of capacitors) previousCapVoltage.set(c.id, readings[c.id].signedVoltage);
-    for (const c of inductors) previousInductorCurrent.set(c.id, readings[c.id].signedCurrent);
+    const maxSrcRes = Math.max(0, ...sourceEdges.map(e => Math.abs((e.a === reference ? 0 : solution[index.get(e.a)] ?? 0) - (e.b === reference ? 0 : solution[index.get(e.b)] ?? 0) - sourceVoltage(e.c, time))));
+    const maxSrcV = Math.max(0, ...sourceEdges.map(e => Math.abs(sourceVoltage(e.c, time))));
+    if (maxSrcRes > Math.max(1e-9, maxSrcV * 1e-8)) return fail("numerical-instability", "The transient solution does not satisfy the voltage-source constraints within the accuracy tolerance.", validation);
+    const stepRes = solveStepReadings(edges, sourceEdges, srcIdxMap, solution, index, reference, n, deltaTime, prevCapV, prevIndI, time);
+    if (!checkStepKcl(edges, stepRes.readings)) return fail("numerical-instability", "The transient solution does not satisfy Kirchhoff's current law within the accuracy tolerance. Adjust component values or use a better-conditioned circuit model.", validation);
+    for (const c of topo.capacitors) prevCapV.set(c.id, stepRes.readings[c.id].signedVoltage);
+    for (const c of topo.inductors) prevIndI.set(c.id, stepRes.readings[c.id].signedCurrent);
     samples.push({
-      time,
-      voltage: sources.length === 1 ? sourceVoltage(sources[0], time) : null,
-      current: sources.length === 1 ? sourceCurrent : null,
-      storageVoltage: firstCap ? readings[firstCap.id].signedVoltage : 0,
-      storageCurrent: firstInductor ? readings[firstInductor.id].signedCurrent : 0,
-      sourcePower,
-      components: readings
+      time, voltage: sourceEdges.length === 1 ? sourceVoltage(sourceEdges[0].c, time) : null,
+      current: sourceEdges.length === 1 ? stepRes.sourceCurrent : null,
+      storageVoltage: firstCap ? stepRes.readings[firstCap.id].signedVoltage : 0,
+      storageCurrent: firstInd ? stepRes.readings[firstInd.id].signedCurrent : 0,
+      sourcePower: stepRes.sourcePower, components: stepRes.readings
     });
   }
+  return null;
+}
+
+export function simulateTransient(components, wires, options = {}, junctions = []) {
+  const err = validateBasicTransient(components, wires, options, junctions);
+  if (err) return err;
+  const validation = validateCircuit(components, wires, junctions);
+  if (!validation.valid) return fail("invalid-topology", validation.errors[0].message, validation);
+  const topo = buildTransientTopology(components, wires, junctions);
+  if (!topo.sources.length) return fail("no-source", "Add a DC or AC voltage source.");
+  if (!topo.capacitors.length && !topo.inductors.length && !topo.sources.some(c => c.type === "acSource")) return fail("no-storage", "Add an AC source, capacitor or inductor to run transient simulation.");
+  if (topo.sourceEdges.some(e => e.a === e.b)) return fail("short-source", "A voltage source is directly shorted by an ideal wire.", validation);
+  const prevCapV = new Map(topo.capacitors.map(c => [c.id, Number(c.initialVoltage ?? 0)]));
+  const prevIndI = new Map(topo.inductors.map(c => [c.id, Number(c.initialCurrent ?? 0)]));
+  const storageErr = validateStorageParams(topo.capacitors, topo.inductors, topo.edges, components, prevCapV, prevIndI, validation);
+  if (storageErr) return storageErr;
+  const duration = Number(options.duration ?? 1), step = Number(options.step ?? 0.001);
+  const count = Math.ceil(duration / step - Number.EPSILON * Math.max(1, duration / step) * 8);
+  if (Math.pow(Math.max(1, components.length), 3) * count > 50000000) return fail("complexity-limit", "This circuit and time step exceed the simulation work limit. Reduce circuit size or increase the time step.");
+  const samples = [{
+    time: 0, voltage: topo.sources.length === 1 ? sourceVoltage(topo.sources[0], 0) : null, current: null,
+    storageVoltage: topo.capacitors[0] ? prevCapV.get(topo.capacitors[0].id) : 0, storageCurrent: topo.inductors[0] ? prevIndI.get(topo.inductors[0].id) : 0,
+    sourcePower: null, components: buildInitialReadings(topo.edges, topo.sources, topo.capacitors, topo.inductors, prevCapV, prevIndI)
+  }];
+  const loopErr = executeTransientLoop(count, step, duration, topo, prevCapV, prevIndI, samples, validation);
+  if (loopErr) return loopErr;
+  const hasAc = topo.sources.some(c => c.type === "acSource"), hasC = topo.capacitors.length > 0, hasL = topo.inductors.length > 0;
   return {
-    ok: true,
-    mode: sources.some(c => c.type === "acSource") ? (capacitors.length && inductors.length ? "ac-rlc" : capacitors.length ? "ac-rc" : inductors.length ? "ac-rl" : "ac") : capacitors.length && inductors.length ? "rlc" : capacitors.length ? "rc" : inductors.length ? "rl" : "dc",
-    summaryValid: sources.length === 1,
+    ok: true, mode: hasAc ? (hasC && hasL ? "ac-rlc" : hasC ? "ac-rc" : hasL ? "ac-rl" : "ac") : (hasC && hasL ? "rlc" : hasC ? "rc" : hasL ? "rl" : "dc"),
+    summaryValid: topo.sources.length === 1,
     assumptions: { idealVoltageSources: true, idealWires: true, fixedResistance: true, integration: "backward-euler", duration, step, samples: samples.length },
-    warnings: accuracyWarnings,
-    samples
+    warnings: computeTransientWarnings(components, topo.sources, topo.capacitors, topo.inductors, step), samples
   };
 }
 
@@ -242,35 +268,4 @@ function hasAlternateConductingPath(edges, targetBranch, components) {
     }
   }
   return false;
-}
-
-function sourceVoltage(source, time) {
-  if (source.type === "battery") return Number(source.voltage);
-  const phase = Number(source.phase ?? 0) * Math.PI / 180;
-  return Number(source.offset ?? 0) + Number(source.amplitude) * Math.sin(2 * Math.PI * Number(source.frequency) * time + phase);
-}
-
-function fail(reason, message, validation) {
-  return { ok: false, reason, message, validation, samples: [] };
-}
-
-function gaussian(a) {
-  const n = a.length;
-  for (let i = 0; i < n; i++) {
-    let max = i;
-    for (let r = i + 1; r < n; r++) if (Math.abs(a[r][i]) > Math.abs(a[max][i])) max = r;
-    const pivotRowScale = Math.max(0, ...a[max].slice(i, n).map(value => Math.abs(value)));
-    const tolerance = pivotRowScale * Number.EPSILON * Math.max(1, n) * 16;
-    if (!Number.isFinite(a[max][i]) || Math.abs(a[max][i]) <= tolerance) return null;
-    [a[i], a[max]] = [a[max], a[i]];
-    const pivot = a[i][i];
-    for (let c = i; c <= n; c++) a[i][c] /= pivot;
-    for (let r = 0; r < n; r++) {
-      if (r === i) continue;
-      const factor = a[r][i];
-      if (Math.abs(factor) <= 1e-15) continue;
-      for (let c = i; c <= n; c++) a[r][c] -= factor * a[i][c];
-    }
-  }
-  return a.map(row => row[n]);
 }

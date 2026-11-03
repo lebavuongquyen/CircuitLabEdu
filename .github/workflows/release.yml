@@ -7,12 +7,13 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag name (e.g. v0.1.0)'
+        description: 'Tag name (e.g. v0.1.1)'
         required: true
-        default: 'v0.1.0'
+        default: 'v0.1.1'
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -26,6 +27,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
@@ -53,6 +55,13 @@ jobs:
           zip -q -r "dist-release/${ARCHIVE_NAME}.zip" . \
               -x "node_modules/*" ".git/*" "dist-release/*" "test-results/*" "playwright-report/*"
           ls -lh dist-release
+
+      - name: Publish packages to NPM
+        if: env.NPM_TOKEN != ''
+        run: npm publish --workspaces --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

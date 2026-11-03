@@ -143,55 +143,101 @@ export const lessons = [
   }
 ];
 
-export function validateLesson(lesson) {
-  if (!lesson || lesson.schemaVersion !== 1 || typeof lesson.id !== "string" || !/^[a-z0-9][a-z0-9-]{1,63}$/i.test(lesson.id) || !["primary", "middle", "high"].includes(lesson.level)) return { valid: false, reason: "invalid-metadata" };
-  if (!lesson.title || typeof lesson.title.vi !== "string" || typeof lesson.title.en !== "string" || !lesson.title.vi.trim() || !lesson.title.en.trim()) return { valid: false, reason: "missing-localized-title" };
-  if (!lesson.objective || typeof lesson.objective.vi !== "string" || typeof lesson.objective.en !== "string" || !lesson.objective.vi.trim() || !lesson.objective.en.trim()) return { valid: false, reason: "missing-localized-objective" };
-  if (lesson.hints !== undefined && (!lesson.hints || !Array.isArray(lesson.hints.vi) || !Array.isArray(lesson.hints.en) || lesson.hints.vi.length > 10 || lesson.hints.en.length > 10 || [...lesson.hints.vi, ...lesson.hints.en].some(hint => typeof hint !== "string" || hint.length > 500))) return { valid: false, reason: "invalid-hints" };
-  if (lesson.startingCircuit !== undefined) {
-    const start = lesson.startingCircuit;
-    if (!start || start.schemaVersion !== 1 || !Array.isArray(start.components) || !Array.isArray(start.wires) || (start.junctions !== undefined && !Array.isArray(start.junctions)) || start.components.length > 500 || start.wires.length > 2000 || (start.junctions || []).length > 1000) return { valid: false, reason: "invalid-starting-circuit" };
-    if (start.components.some(c => !c || typeof c.id !== "string" || !["battery", "acSource", "lamp", "resistor", "switch", "ammeter", "voltmeter", "capacitor", "inductor"].includes(c.type) || !Number.isFinite(c.x) || !Number.isFinite(c.y) || c.x < 0 || c.x > 900 || c.y < 0 || c.y > 510)) return { valid: false, reason: "invalid-starting-component" };
-    if ((start.junctions || []).some(j => !j || !Number.isFinite(j.x) || !Number.isFinite(j.y) || j.x < 0 || j.x > 900 || j.y < 0 || j.y > 510)) return { valid: false, reason: "invalid-starting-junction" };
-    const circuitValidation = validateCircuit(start.components, start.wires, start.junctions || []);
-    if (!circuitValidation.valid) return { valid: false, reason: "invalid-starting-topology" };
+function validateLessonMetadata(lesson) {
+  if (!lesson || lesson.schemaVersion !== 1 || typeof lesson.id !== "string" || !/^[a-z0-9][a-z0-9-]{1,63}$/i.test(lesson.id) || !["primary", "middle", "high"].includes(lesson.level)) {
+    return "invalid-metadata";
   }
-  if (!lesson.expected || typeof lesson.expected !== "object" || Array.isArray(lesson.expected)) return { valid: false, reason: "missing-expectations" };
+  if (!lesson.title || typeof lesson.title.vi !== "string" || typeof lesson.title.en !== "string" || !lesson.title.vi.trim() || !lesson.title.en.trim()) {
+    return "missing-localized-title";
+  }
+  if (!lesson.objective || typeof lesson.objective.vi !== "string" || typeof lesson.objective.en !== "string" || !lesson.objective.vi.trim() || !lesson.objective.en.trim()) {
+    return "missing-localized-objective";
+  }
+  if (lesson.hints !== undefined) {
+    if (!lesson.hints || !Array.isArray(lesson.hints.vi) || !Array.isArray(lesson.hints.en) || lesson.hints.vi.length > 10 || lesson.hints.en.length > 10 || [...lesson.hints.vi, ...lesson.hints.en].some(h => typeof h !== "string" || h.length > 500)) {
+      return "invalid-hints";
+    }
+  }
+  return null;
+}
+
+function validateStartingCircuit(start) {
+  if (!start || start.schemaVersion !== 1 || !Array.isArray(start.components) || !Array.isArray(start.wires) || (start.junctions !== undefined && !Array.isArray(start.junctions)) || start.components.length > 500 || start.wires.length > 2000 || (start.junctions || []).length > 1000) {
+    return "invalid-starting-circuit";
+  }
+  const known = new Set(["battery", "acSource", "lamp", "resistor", "switch", "ammeter", "voltmeter", "capacitor", "inductor"]);
+  if (start.components.some(c => !c || typeof c.id !== "string" || !known.has(c.type) || !Number.isFinite(c.x) || !Number.isFinite(c.y) || c.x < 0 || c.x > 900 || c.y < 0 || c.y > 510)) {
+    return "invalid-starting-component";
+  }
+  if ((start.junctions || []).some(j => !j || !Number.isFinite(j.x) || !Number.isFinite(j.y) || j.x < 0 || j.x > 900 || j.y < 0 || j.y > 510)) {
+    return "invalid-starting-junction";
+  }
+  const circuitValidation = validateCircuit(start.components, start.wires, start.junctions || []);
+  return circuitValidation.valid ? null : "invalid-starting-topology";
+}
+
+function validateExpectedRules(e) {
   const allowed = new Set(["componentTypes", "requireClosedCircuit", "relation", "tolerance", "minCurrent", "maxCurrent", "targetVoltage", "targetResistance", "comparison", "transientMode"]);
-  if (Object.keys(lesson.expected).some(key => !allowed.has(key)) || Object.keys(lesson.expected).length === 0) return { valid: false, reason: "unsupported-expectation" };
-  const e = lesson.expected;
-  if (e.componentTypes !== undefined && (!Array.isArray(e.componentTypes) || e.componentTypes.length === 0 || e.componentTypes.some(type => !["battery", "acSource", "lamp", "resistor", "switch", "ammeter", "voltmeter", "capacitor", "inductor"].includes(type)))) return { valid: false, reason: "invalid-component-requirement" };
-  if (e.requireClosedCircuit !== undefined && typeof e.requireClosedCircuit !== "boolean") return { valid: false, reason: "invalid-closed-circuit-rule" };
-  if (e.relation !== undefined && e.relation !== "ohms-law") return { valid: false, reason: "unsupported-relation" };
-  if (e.comparison !== undefined && e.comparison !== "series-parallel-current") return { valid: false, reason: "unsupported-comparison" };
-  if (e.transientMode !== undefined && !["rc", "rl", "rlc", "ac", "ac-rc"].includes(e.transientMode)) return { valid: false, reason: "unsupported-transient-mode" };
-  for (const key of ["tolerance", "minCurrent", "maxCurrent", "targetVoltage", "targetResistance"]) {
-    if (e[key] !== undefined && (!Number.isFinite(e[key]) || e[key] < 0)) return { valid: false, reason: "invalid-numeric-expectation" };
+  if (Object.keys(e).some(k => !allowed.has(k)) || Object.keys(e).length === 0) return "unsupported-expectation";
+  const known = new Set(["battery", "acSource", "lamp", "resistor", "switch", "ammeter", "voltmeter", "capacitor", "inductor"]);
+  if (e.componentTypes !== undefined && (!Array.isArray(e.componentTypes) || e.componentTypes.length === 0 || e.componentTypes.some(t => !known.has(t)))) return "invalid-component-requirement";
+  if (e.requireClosedCircuit !== undefined && typeof e.requireClosedCircuit !== "boolean") return "invalid-closed-circuit-rule";
+  if (e.relation !== undefined && e.relation !== "ohms-law") return "unsupported-relation";
+  if (e.comparison !== undefined && e.comparison !== "series-parallel-current") return "unsupported-comparison";
+  if (e.transientMode !== undefined && !["rc", "rl", "rlc", "ac", "ac-rc"].includes(e.transientMode)) return "unsupported-transient-mode";
+  for (const k of ["tolerance", "minCurrent", "maxCurrent", "targetVoltage", "targetResistance"]) {
+    if (e[k] !== undefined && (!Number.isFinite(e[k]) || e[k] < 0)) return "invalid-numeric-expectation";
   }
-  if (e.minCurrent !== undefined && e.maxCurrent !== undefined && e.minCurrent > e.maxCurrent) return { valid: false, reason: "invalid-current-range" };
-  if (!e.componentTypes && !e.requireClosedCircuit && !e.relation && !e.comparison && !e.transientMode && e.minCurrent === undefined && e.maxCurrent === undefined && e.targetVoltage === undefined && e.targetResistance === undefined) return { valid: false, reason: "empty-expectations" };
+  if (e.minCurrent !== undefined && e.maxCurrent !== undefined && e.minCurrent > e.maxCurrent) return "invalid-current-range";
+  if (!e.componentTypes && !e.requireClosedCircuit && !e.relation && !e.comparison && !e.transientMode && e.minCurrent === undefined && e.maxCurrent === undefined && e.targetVoltage === undefined && e.targetResistance === undefined) return "empty-expectations";
+  return null;
+}
+
+export function validateLesson(lesson) {
+  const metaErr = validateLessonMetadata(lesson);
+  if (metaErr) return { valid: false, reason: metaErr };
+  if (lesson.startingCircuit !== undefined) {
+    const circuitErr = validateStartingCircuit(lesson.startingCircuit);
+    if (circuitErr) return { valid: false, reason: circuitErr };
+  }
+  if (!lesson.expected || typeof lesson.expected !== "object" || Array.isArray(lesson.expected)) {
+    return { valid: false, reason: "missing-expectations" };
+  }
+  const expErr = validateExpectedRules(lesson.expected);
+  if (expErr) return { valid: false, reason: expErr };
   return { valid: true };
+}
+
+function checkStructuralExpectations(expected, result, components) {
+  if (expected.transientMode && result.mode !== expected.transientMode) return "transient-mode-mismatch";
+  if (expected.comparison) return result.comparisonPassed === true ? null : "comparison-requires-two-scenarios";
+  if (expected.componentTypes && expected.componentTypes.some(t => !components.some(c => c.type === t))) return "required-components-missing";
+  if (expected.requireClosedCircuit && result.reason !== "closed") return "circuit-not-closed";
+  return null;
+}
+
+function checkReadingExpectations(expected, r) {
+  if (r?.summaryValid === false && (expected.relation || expected.minCurrent !== undefined || expected.maxCurrent !== undefined || expected.targetVoltage !== undefined || expected.targetResistance !== undefined)) {
+    return "aggregate-measurement-undefined";
+  }
+  if (expected.relation === "ohms-law") {
+    if (!r) return "missing-readings";
+    if (Math.abs(r.current * r.resistance - r.voltage) > (expected.tolerance ?? 0.01)) return "ohms-law-mismatch";
+  }
+  if (r && expected.minCurrent !== undefined && r.current < expected.minCurrent) return "current-below-target";
+  if (r && expected.maxCurrent !== undefined && r.current > expected.maxCurrent) return "current-above-target";
+  if (r && expected.targetVoltage !== undefined && Math.abs(r.voltage - expected.targetVoltage) > (expected.tolerance ?? 0.01)) return "voltage-mismatch";
+  if (r && expected.targetResistance !== undefined && Math.abs(r.resistance - expected.targetResistance) > (expected.tolerance ?? 0.01)) return "resistance-mismatch";
+  return null;
 }
 
 export function assessCircuit(lesson, result, components = []) {
   const schema = validateLesson(lesson);
   if (!schema.valid) return { passed: false, reason: schema.reason };
   if (!result || !result.ok) return { passed: false, reason: "circuit-not-solved" };
-  const expected = lesson.expected;
-  if (expected.transientMode && result.mode !== expected.transientMode) return { passed: false, reason: "transient-mode-mismatch" };
-  if (expected.comparison) return { passed: result.comparisonPassed === true, reason: result.comparisonPassed === true ? "passed" : "comparison-requires-two-scenarios" };
-  if (expected.componentTypes && expected.componentTypes.some(type => !components.some(component => component.type === type))) return { passed: false, reason: "required-components-missing" };
-  if (expected.requireClosedCircuit && result.reason !== "closed") return { passed: false, reason: "circuit-not-closed" };
-  const r = result.readings;
-  if (r?.summaryValid === false && (expected.relation || expected.minCurrent !== undefined || expected.maxCurrent !== undefined || expected.targetVoltage !== undefined || expected.targetResistance !== undefined)) return { passed: false, reason: "aggregate-measurement-undefined" };
-  if (expected.relation === "ohms-law") {
-    if (!r) return { passed: false, reason: "missing-readings" };
-    const error = Math.abs(r.current * r.resistance - r.voltage);
-    if (error > (expected.tolerance ?? 0.01)) return { passed: false, reason: "ohms-law-mismatch" };
-  }
-  if (r && expected.minCurrent !== undefined && r.current < expected.minCurrent) return { passed: false, reason: "current-below-target" };
-  if (r && expected.maxCurrent !== undefined && r.current > expected.maxCurrent) return { passed: false, reason: "current-above-target" };
-  if (r && expected.targetVoltage !== undefined && Math.abs(r.voltage - expected.targetVoltage) > (expected.tolerance ?? 0.01)) return { passed: false, reason: "voltage-mismatch" };
-  if (r && expected.targetResistance !== undefined && Math.abs(r.resistance - expected.targetResistance) > (expected.tolerance ?? 0.01)) return { passed: false, reason: "resistance-mismatch" };
+  const structErr = checkStructuralExpectations(lesson.expected, result, components);
+  if (structErr) return { passed: false, reason: structErr };
+  const readErr = checkReadingExpectations(lesson.expected, result.readings);
+  if (readErr) return { passed: false, reason: readErr };
   return { passed: true, reason: "passed" };
 }
