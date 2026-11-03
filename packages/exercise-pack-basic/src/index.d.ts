@@ -1,4 +1,4 @@
-import type { CircuitComponent, Wire, Junction, LearningLevel, CircuitSolveResult } from "@quyenlbv/core";
+import type { CircuitComponent, Wire, Junction, LearningLevel, CircuitSolveResult } from "@quyenlbv/circuitlab-core";
 
 export interface LocalizedText {
   vi: string;

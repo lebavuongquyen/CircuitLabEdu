@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { solveCircuit, validateCircuit, simulateTransient, routeOrthogonal } from "@quyenlbv/core";
-import { lessons, validateLesson, assessCircuit } from "@quyenlbv/exercise-pack-basic";
+import { solveCircuit, validateCircuit, simulateTransient, routeOrthogonal } from "@quyenlbv/circuitlab-core";
+import { lessons, validateLesson, assessCircuit } from "@quyenlbv/circuitlab-exercise-pack-basic";
 
 test("core package exposes stable framework-independent entry points", () => {
   assert.equal(typeof solveCircuit, "function");

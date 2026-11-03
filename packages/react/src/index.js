@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeViewportConfig, resolveViewportSize } from "@quyenlbv/core";
+import { normalizeViewportConfig, resolveViewportSize } from "@quyenlbv/circuitlab-core";
 
 const px = value => typeof value === "number" ? `${value}px` : value;
 

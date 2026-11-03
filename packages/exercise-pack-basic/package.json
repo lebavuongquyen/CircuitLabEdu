@@ -1,5 +1,5 @@
 {
-  "name": "@quyenlbv/exercise-pack-basic",
+  "name": "@quyenlbv/circuitlab-exercise-pack-basic",
   "version": "0.1.2",
   "description": "Bilingual sample exercise pack for CircuitLabEdu",
   "type": "module",
@@ -17,7 +17,7 @@
     }
   },
   "dependencies": {
-    "@quyenlbv/core": "^0.1.2"
+    "@quyenlbv/circuitlab-core": "^0.1.2"
   },
   "engines": {
     "node": ">=20"

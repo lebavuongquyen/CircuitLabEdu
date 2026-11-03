@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CircuitCanvas } from '@quyenlbv/react';
-import { solveCircuit } from '@quyenlbv/core';
-import { lessons as basicLessons, validateLesson } from '@quyenlbv/exercise-pack-basic';
+import { CircuitCanvas } from '@quyenlbv/circuitlab-react';
+import { solveCircuit } from '@quyenlbv/circuitlab-core';
+import { lessons as basicLessons, validateLesson } from '@quyenlbv/circuitlab-exercise-pack-basic';
 import './react-workbench.css';
 
 const copy = {
@@ -30,7 +30,7 @@ function makeCircuit(resistance = 10) {
 function App() {
   const [language, setLanguage] = useState('vi');
   const t = copy[language];
-  const [pack, setPack] = useState({ name: '@quyenlbv/exercise-pack-basic', lessons: basicLessons });
+  const [pack, setPack] = useState({ name: '@quyenlbv/circuitlab-exercise-pack-basic', lessons: basicLessons });
   const [selectedId, setSelectedId] = useState(basicLessons[0]?.id ?? '');
   const [circuit, setCircuit] = useState(() => makeCircuit());
   const [result, setResult] = useState(null);
@@ -125,7 +125,7 @@ function App() {
         </section>
       </section>
     </main>
-    <footer>React UI lab · Uses <code>@quyenlbv/core</code> and <code>@quyenlbv/exercise-pack-basic</code> · Not a production CAD tool</footer>
+    <footer>React UI lab · Uses <code>@quyenlbv/circuitlab-core</code> and <code>@quyenlbv/circuitlab-exercise-pack-basic</code> · Not a production CAD tool</footer>
   </div>;
 }
 

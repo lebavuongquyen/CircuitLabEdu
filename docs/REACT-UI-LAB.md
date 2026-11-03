@@ -1,6 +1,6 @@
 # React UI Lab
 
-The React UI Lab is a browser-based interaction and responsive-layout test surface for CircuitLabEdu. It intentionally reuses the existing `@quyenlbv/core` solver and `@quyenlbv/react` canvas adapter rather than implementing a second electrical solver.
+The React UI Lab is a browser-based interaction and responsive-layout test surface for CircuitLabEdu. It intentionally reuses the existing `@quyenlbv/circuitlab-core` solver and `@quyenlbv/circuitlab-react` canvas adapter rather than implementing a second electrical solver.
 
 ## Start the lab
 
@@ -28,4 +28,4 @@ Run the dedicated browser checks with `npm run test:react-ui`. Tests cover deskt
 
 The JSON file can contain either an array of lesson objects or an object with a `lessons` array. Each lesson is validated by `validateLesson` exported by the exercise-pack package. This lab uses that schema validator for the demo; the electrical core does not import or depend on exercise packs.
 
-A production app may provide its own content provider, lesson selection, progress model, localization, and assessment UI. Those are intentionally kept outside `@quyenlbv/core`.
+A production app may provide its own content provider, lesson selection, progress model, localization, and assessment UI. Those are intentionally kept outside `@quyenlbv/circuitlab-core`.

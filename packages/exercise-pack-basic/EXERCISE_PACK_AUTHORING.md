@@ -4,8 +4,8 @@ This guide defines how to author, validate, test and distribute exercise packs f
 
 ## 1. Package boundary
 
-- `@quyenlbv/core` owns topology validation and electrical simulation.
-- `@quyenlbv/exercise-pack-basic` is the reference pack and owns sample lesson definitions, lesson schema validation and lesson assessment.
+- `@quyenlbv/circuitlab-core` owns topology validation and electrical simulation.
+- `@quyenlbv/circuitlab-exercise-pack-basic` is the reference pack and owns sample lesson definitions, lesson schema validation and lesson assessment.
 - A ReactJS app owns rendering, drag/drop, SVG, animation, navigation, language selection and learner interaction.
 - An exercise pack may depend on the public core API, but core must never import an exercise pack.
 

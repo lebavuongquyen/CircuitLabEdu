@@ -8,9 +8,9 @@ CircuitLab Edu is a standalone browser application. The core editor, static DC s
 
 The repository uses npm workspaces for independently addressable packages:
 
-- `@quyenlbv/core` owns circuit validation, static DC and transient solvers, and a UI-independent orthogonal routing helper. It must not import React, DOM APIs, the application shell, or curriculum data.
-- `@quyenlbv/react` provides a responsive React SVG viewport host. It observes container changes and accepts fixed or automatic dimensions; it is a presentation adapter, not the circuit editor itself.
-- `@quyenlbv/exercise-pack-basic` owns sample lesson records, lesson schema validation and assessment. It depends on the core public API and must not be imported by core.
+- `@quyenlbv/circuitlab-core` owns circuit validation, static DC and transient solvers, and a UI-independent orthogonal routing helper. It must not import React, DOM APIs, the application shell, or curriculum data.
+- `@quyenlbv/circuitlab-react` provides a responsive React SVG viewport host. It observes container changes and accepts fixed or automatic dimensions; it is a presentation adapter, not the circuit editor itself.
+- `@quyenlbv/circuitlab-exercise-pack-basic` owns sample lesson records, lesson schema validation and assessment. It depends on the core public API and must not be imported by core.
 - The browser app remains at the repository root during the compatibility migration. Root-level module files re-export the package modules so existing app and test imports keep working while consumers move to package entry points.
 
 The core exports DOM-free viewport configuration helpers (`normalizeViewportConfig` and `resolveViewportSize`) so non-React integrations can share the same size rules. The current pack still contains legacy `example` fields that are resolved by application presets. They are not portable circuit fixtures. Portable external packs should use `startingCircuit`; the authoring guide records the remaining schema and grading limitations.

@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { CircuitCanvas } from "@quyenlbv/react";
+import { CircuitCanvas } from "@quyenlbv/circuitlab-react";
 
 const parentRoot = createRoot(document.getElementById("parent"));
 const fixedRoot = createRoot(document.getElementById("fixed"));

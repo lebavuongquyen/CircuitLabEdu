@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { CircuitCanvas, type CircuitCanvasOptions, type CircuitCanvasProps } from "@quyenlbv/react";
-import { normalizeViewportConfig, resolveViewportSize, type ViewportConfig } from "@quyenlbv/core";
+import { CircuitCanvas, type CircuitCanvasOptions, type CircuitCanvasProps } from "@quyenlbv/circuitlab-react";
+import { normalizeViewportConfig, resolveViewportSize, type ViewportConfig } from "@quyenlbv/circuitlab-core";
 
 const options: CircuitCanvasOptions = {
   width: "auto",
