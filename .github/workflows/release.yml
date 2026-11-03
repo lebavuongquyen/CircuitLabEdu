@@ -57,11 +57,9 @@ jobs:
           ls -lh dist-release
 
       - name: Publish packages to NPM
-        if: env.NPM_TOKEN != ''
         run: npm publish --workspaces --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
