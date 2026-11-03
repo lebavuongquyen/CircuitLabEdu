@@ -91,28 +91,72 @@ if(reading){
 const rotBtn='<g class="node-rotate" data-action="rotate" data-node-id="'+c.id+'" aria-label="'+t("rotate")+'" transform="translate(48 -32)"><circle class="rotate-btn-bg" cx="0" cy="0" r="9.5"/><text x="0" y="3.5" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff" pointer-events="none">↻</text></g>';
 return '<g class="node '+(state.selected===c.id?"selected ":"")+(lit?"lit":"")+'" data-node="'+c.id+'" tabindex="0" role="button" aria-label="'+esc(c.name||t(labels[c.type]))+'" transform="translate('+c.x+' '+c.y+')">'+live+'<g class="body-wrap" transform="rotate('+(((c.rotation||0)%360+360)%360)+')">'+shape+'</g><text class="node-label" x="0" y="43" text-anchor="middle">'+esc(c.name||t(labels[c.type]))+'</text><text class="node-value" x="0" y="57" text-anchor="middle">'+esc(val)+'</text><circle class="terminal '+(state.pending===c.id+":a"?"pending":"")+'" data-terminal="'+c.id+':a" tabindex="0" role="button" aria-label="'+t("terminalA")+'" cx="'+(ta.x-c.x)+'" cy="'+(ta.y-c.y)+'" r="5"/><circle class="terminal '+(state.pending===c.id+":b"?"pending":"")+'" data-terminal="'+c.id+':b" tabindex="0" role="button" aria-label="'+t("terminalB")+'" cx="'+(tb.x-c.x)+'" cy="'+(tb.y-c.y)+'" r="5"/>'+rotBtn+'</g>'
 }
-function routeWire(w, priorRoutes=[], excludeComponentId=null){
-const a=tp(w.from),b=tp(w.to);if(!a||!b)return[];
-const ca=cBy(w.from.split(":")[0]),cb=cBy(w.to.split(":")[0]);
-const va=terminalVector(ca,w.from.endsWith(":a")?"a":"b",18),vb=terminalVector(cb,w.to.endsWith(":a")?"a":"b",18);
-const start={x:a.x+va.x,y:a.y+va.y},end={x:b.x+vb.x,y:b.y+vb.y};
-const compObstacles=state.components.filter(c=>c.id!==excludeComponentId&&(!drag||drag.id!==c.id)).map(c=>({l:c.x-26,r:c.x+26,t:c.y-26,b:c.y+26}));
-const obstacles=[...compObstacles];
-for(const prior of priorRoutes){
-const shareStart=prior.w.from===w.from||prior.w.to===w.from;
-const shareEnd=prior.w.to===w.to||prior.w.from===w.to;
-for(let i=1;i<prior.points.length;i++){
-if(shareStart&&(i===1||(prior.w.to===w.from&&i===prior.points.length-1)))continue;
-if(shareEnd&&(i===prior.points.length-1||(prior.w.from===w.to&&i===1)))continue;
-const u=prior.points[i-1],v=prior.points[i];
-if(Math.abs(u.y-v.y)<0.01&&Math.abs(u.x-v.x)>0.01)obstacles.push({l:Math.min(u.x,v.x),r:Math.max(u.x,v.x),t:u.y-4,b:u.y+4});
-else if(Math.abs(u.x-v.x)<0.01&&Math.abs(u.y-v.y)>0.01)obstacles.push({l:u.x-4,r:u.x+4,t:Math.min(u.y,v.y),b:Math.max(u.y,v.y)});
+function getComponentObstacles(wire, excludeComponentId = null) {
+  const list = [];
+  for (const c of state.components) {
+    if (c.id === excludeComponentId || (drag && drag.id === c.id)) continue;
+    const isConnA = wire.from === c.id + ":a" || wire.to === c.id + ":a";
+    const isConnB = wire.from === c.id + ":b" || wire.to === c.id + ":b";
+    if (!isConnA && !isConnB) {
+      const isRot = (c.rotation || 0) % 180 !== 0;
+      list.push(isRot ? { l: c.x - 26, r: c.x + 26, t: c.y - 48, b: c.y + 48 } : { l: c.x - 48, r: c.x + 48, t: c.y - 26, b: c.y + 26 });
+    } else {
+      list.push({ l: c.x - 22, r: c.x + 22, t: c.y - 22, b: c.y + 22 });
+      if (!isConnA) { const ta = p(c, "a"); list.push({ l: ta.x - 12, r: ta.x + 12, t: ta.y - 12, b: ta.y + 12 }); }
+      if (!isConnB) { const tb = p(c, "b"); list.push({ l: tb.x - 12, r: tb.x + 12, t: tb.y - 12, b: tb.y + 12 }); }
+    }
+  }
+  for (const j of state.junctions) {
+    if (wire.from !== "j:" + j.id && wire.to !== "j:" + j.id) {
+      list.push({ l: j.x - 12, r: j.x + 12, t: j.y - 12, b: j.y + 12 });
+    }
+  }
+  return list;
 }
+function trimSegmentObstacle(u, v, endpoints, thickness = 4) {
+  let minX = Math.min(u.x, v.x), maxX = Math.max(u.x, v.x);
+  let minY = Math.min(u.y, v.y), maxY = Math.max(u.y, v.y);
+  for (const pt of endpoints) {
+    if (Math.hypot(u.x - pt.x, u.y - pt.y) < 6) {
+      if (Math.abs(u.y - v.y) < 0.01) { if (v.x > u.x) minX += 10; else maxX -= 10; }
+      else { if (v.y > u.y) minY += 10; else maxY -= 10; }
+    }
+    if (Math.hypot(v.x - pt.x, v.y - pt.y) < 6) {
+      if (Math.abs(u.y - v.y) < 0.01) { if (u.x > v.x) minX += 10; else maxX -= 10; }
+      else { if (u.y > v.y) minY += 10; else maxY -= 10; }
+    }
+  }
+  if (Math.abs(u.y - v.y) < 0.01 && maxX - minX > 2) return { l: minX, r: maxX, t: u.y - thickness, b: u.y + thickness };
+  if (Math.abs(u.x - v.x) < 0.01 && maxY - minY > 2) return { l: u.x - thickness, r: u.x + thickness, t: minY, b: maxY };
+  return null;
 }
-let routed=routeOrthogonal(start,end,obstacles);
-if(!routed.length)routed=routeOrthogonal(start,end,compObstacles);
-const full=routed.length?[a,...routed,b]:[];
-return full.filter((p,i)=>i===0||Math.hypot(p.x-full[i-1].x,p.y-full[i-1].y)>0.1);
+function getPriorWireObstacles(priorRoutes, endpoints, thickness = 4) {
+  const obstacles = [];
+  for (const prior of priorRoutes) {
+    for (let i = 1; i < prior.points.length; i++) {
+      const obs = trimSegmentObstacle(prior.points[i - 1], prior.points[i], endpoints, thickness);
+      if (obs) obstacles.push(obs);
+    }
+  }
+  return obstacles;
+}
+function routeWire(w, priorRoutes = [], excludeComponentId = null) {
+  const a = tp(w.from), b = tp(w.to);
+  if (!a || !b) return [];
+  const ca = cBy(w.from.split(":")[0]), cb = cBy(w.to.split(":")[0]);
+  const va = terminalVector(ca, w.from.endsWith(":a") ? "a" : "b", 18);
+  const vb = terminalVector(cb, w.to.endsWith(":a") ? "a" : "b", 18);
+  const start = { x: a.x + va.x, y: a.y + va.y }, end = { x: b.x + vb.x, y: b.y + vb.y };
+  const compObstacles = getComponentObstacles(w, excludeComponentId);
+  const wireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 4);
+  let routed = routeOrthogonal(start, end, [...compObstacles, ...wireObstacles]);
+  if (!routed.length) {
+    const thinWireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 1);
+    routed = routeOrthogonal(start, end, [...compObstacles, ...thinWireObstacles]);
+  }
+  if (!routed.length) routed = routeOrthogonal(start, end, compObstacles);
+  const full = routed.length ? [a, ...routed, b] : [];
+  return full.filter((p, i) => i === 0 || Math.hypot(p.x - full[i - 1].x, p.y - full[i - 1].y) > 0.1);
 }
 function wireCurrentDirection(w,componentReadings){
 if(!componentReadings)return 0;

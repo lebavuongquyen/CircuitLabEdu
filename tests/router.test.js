@@ -82,3 +82,24 @@ test("reports an impossible obstacle layout instead of returning a colliding fal
   );
   assert.deepEqual(route, []);
 });
+
+test("routes parallel wire runs into separate lanes without collinear overlap", () => {
+  const start = { x: 100, y: 200 }, end = { x: 500, y: 200 };
+  const existingWireObstacle = { l: 110, r: 490, t: 196, b: 204 };
+  const route = routeOrthogonal(start, end, [existingWireObstacle]);
+  assertOrthogonal(route);
+  assert.ok(route.length >= 4);
+  assert.equal(intersectsRect(route[1], route[2], existingWireObstacle), false);
+  // Ensure the route bent into a parallel lane above or below y=200
+  assert.notEqual(route[1].y, 200);
+});
+
+test("routes vertical connection around wide component terminal obstacles", () => {
+  // Simulates a battery at (150, 400) whose terminals span x=102 to 198
+  const batteryObstacle = { l: 102, r: 198, t: 374, b: 426 };
+  const route = routeOrthogonal({ x: 114, y: 110 }, { x: 114, y: 550 }, [batteryObstacle]);
+  assertOrthogonal(route);
+  for (let i = 1; i < route.length; i++) {
+    assert.equal(intersectsRect(route[i - 1], route[i], batteryObstacle), false);
+  }
+});

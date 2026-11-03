@@ -1540,6 +1540,74 @@ test("clicking an existing wire while wiring creates a junction and completes th
   await expect(page.locator("[data-wire]")).toHaveCount(3);
 });
 
+test("wires passing a stacked component do not clip through its terminal pads", async ({ page }) => {
+  await page.goto("/");
+
+  const circuit = {
+    schemaVersion: 1,
+    components: [
+      { id: "lamp1", type: "lamp", x: 150, y: 110, resistance: 6, rotation: 0 },
+      { id: "battery", type: "battery", x: 150, y: 330, voltage: 9, rotation: 0 },
+      { id: "lamp2", type: "lamp", x: 450, y: 450, resistance: 6, rotation: 0 }
+    ],
+    wires: [
+      { id: "w1", from: "lamp1:a", to: "lamp2:a" }
+    ],
+    junctions: []
+  };
+
+  await page.evaluate(data => {
+    const input = document.querySelector("#fileInput");
+    const file = new File([JSON.stringify(data)], "stacked.json", { type: "application/json" });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, circuit);
+
+  await expect(page.locator(".wire-routing-error")).toHaveCount(0);
+  const pathD = await page.locator(".wire-group path.wire").first().getAttribute("d");
+  // Battery terminal A is at x=114, y=330. The wire must NOT run vertically along x=114 past y=330.
+  // Wire must bend away (e.g. to x=96) to clear terminal pad
+  expect(pathD).not.toMatch(/M 114 110 L 114 450/);
+});
+
+test("parallel branch wires sharing a corridor route along separate offset lanes without collinear overlap", async ({ page }) => {
+  await page.goto("/");
+
+  const circuit = {
+    schemaVersion: 1,
+    components: [
+      { id: "c1", type: "battery", x: 280, y: 210, voltage: 9, rotation: 0 },
+      { id: "c2", type: "lamp", x: 620, y: 140, resistance: 6, rotation: 0 },
+      { id: "c3", type: "lamp", x: 620, y: 310, resistance: 6, rotation: 0 }
+    ],
+    wires: [
+      { id: "w1", from: "c1:b", to: "c2:b" },
+      { id: "w2", from: "c2:b", to: "c3:b" },
+      { id: "w3", from: "c1:b", to: "c2:a" }
+    ],
+    junctions: []
+  };
+
+  await page.evaluate(data => {
+    const input = document.querySelector("#fileInput");
+    const file = new File([JSON.stringify(data)], "corridor.json", { type: "application/json" });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }, circuit);
+
+  await expect(page.locator(".wire-routing-error")).toHaveCount(0);
+  const paths = await page.locator(".wire-group path.wire").evaluateAll(els => els.map(el => el.getAttribute("d")));
+  expect(paths).toHaveLength(3);
+  // Ensure no two wires have identical paths
+  const uniquePaths = new Set(paths);
+  expect(uniquePaths.size).toBe(3);
+});
+
+
 
 
 
