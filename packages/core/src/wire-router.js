@@ -136,8 +136,8 @@ function buildSingleComponentObstacles(c, wire, components = []) {
   const list = [];
   if (!isConnA && !isConnB) {
     list.push(isRot
-      ? { l: c.x - 28, r: c.x + 28, t: c.y - 56, b: c.y + 56, type: "comp" }
-      : { l: c.x - 56, r: c.x + 56, t: c.y - 28, b: c.y + 28, type: "comp" });
+      ? { l: c.x - 28, r: c.x + 28, t: c.y - 44, b: c.y + 44, type: "comp" }
+      : { l: c.x - 44, r: c.x + 44, t: c.y - 28, b: c.y + 28, type: "comp" });
   } else {
     list.push({ l: c.x - 22, r: c.x + 22, t: c.y - 22, b: c.y + 22, type: "comp" });
     if (!isConnA) {

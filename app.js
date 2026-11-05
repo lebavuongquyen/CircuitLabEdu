@@ -128,27 +128,30 @@ function findBranchPoint(wire,fromKey,toKey){
   const pFrom=tp(fromKey),pTo=tp(toKey);if(!pFrom||!pTo)return null;
   const cTo=cBy(toKey.split(":")[0]),vTo=toKey.startsWith("j:")?{x:0,y:0}:terminalVector(cTo,toKey.endsWith(":a")?"a":"b",18);
   const startTo={x:pTo.x+vTo.x,y:pTo.y+vTo.y};
+  const otherKey=wire.from===fromKey?wire.to:wire.to===fromKey?wire.from:null,pOther=otherKey?tp(otherKey):null;
   const entry=captureWirePaths().find(item=>item.wire.id===wire.id);
   const pts=entry?.points||routeWire(wire);
   if(!pts||pts.length<2)return null;
+  const matches=[];
   for(const pt of pts){
-    if(Math.hypot(pt.x-pFrom.x,pt.y-pFrom.y)<14)continue;
-    if(Math.hypot(pt.x-pTo.x,pt.y-pTo.y)<14)continue;
-    if(Math.abs(pt.x-startTo.x)<4||Math.abs(pt.y-startTo.y)<4)return{x:Math.round(pt.x*10)/10,y:Math.round(pt.y*10)/10};
+    if(Math.hypot(pt.x-pFrom.x,pt.y-pFrom.y)<14||Math.hypot(pt.x-pTo.x,pt.y-pTo.y)<14)continue;
+    if(pOther&&Math.hypot(pt.x-pOther.x,pt.y-pOther.y)<22)continue;
+    if(Math.abs(pt.x-startTo.x)<4||Math.abs(pt.y-startTo.y)<4)matches.push({x:Math.round(pt.x*10)/10,y:Math.round(pt.y*10)/10,d:Math.hypot(pt.x-startTo.x,pt.y-startTo.y)});
   }
+  if(matches.length){matches.sort((a,b)=>a.d-b.d);return{x:matches[0].x,y:matches[0].y}}
   for(let i=1;i<pts.length;i++){
     const u=pts[i-1],v=pts[i];
     if(Math.abs(u.y-v.y)<0.01&&Math.abs(u.x-v.x)>0.01){
       const minX=Math.min(u.x,v.x),maxX=Math.max(u.x,v.x);
       if(startTo.x>=minX-2&&startTo.x<=maxX+2){
         const candidate={x:Math.round(startTo.x*10)/10,y:Math.round(u.y*10)/10};
-        if(Math.hypot(candidate.x-pFrom.x,candidate.y-pFrom.y)>=14&&Math.hypot(candidate.x-pTo.x,candidate.y-pTo.y)>=14)return candidate;
+        if(Math.hypot(candidate.x-pFrom.x,candidate.y-pFrom.y)>=14&&Math.hypot(candidate.x-pTo.x,candidate.y-pTo.y)>=14&&(!pOther||Math.hypot(candidate.x-pOther.x,candidate.y-pOther.y)>=22))return candidate;
       }
     }else if(Math.abs(u.x-v.x)<0.01&&Math.abs(u.y-v.y)>0.01){
       const minY=Math.min(u.y,v.y),maxY=Math.max(u.y,v.y);
       if(startTo.y>=minY-2&&startTo.y<=maxY+2){
         const candidate={x:Math.round(u.x*10)/10,y:Math.round(startTo.y*10)/10};
-        if(Math.hypot(candidate.x-pFrom.x,candidate.y-pFrom.y)>=14&&Math.hypot(candidate.x-pTo.x,candidate.y-pTo.y)>=14)return candidate;
+        if(Math.hypot(candidate.x-pFrom.x,candidate.y-pFrom.y)>=14&&Math.hypot(candidate.x-pTo.x,candidate.y-pTo.y)>=14&&(!pOther||Math.hypot(candidate.x-pOther.x,candidate.y-pOther.y)>=22))return candidate;
       }
     }
   }
@@ -240,19 +243,37 @@ $("#undo").addEventListener("click",()=>{const x=state.undo.pop();if(!x)return;s
 const redoButton=document.createElement("button");redoButton.id="redo";redoButton.className="icon-button";redoButton.title="Redo";redoButton.setAttribute("aria-label","Redo");redoButton.textContent="↷";$("#undo").after(redoButton);redoButton.addEventListener("click",()=>{const x=state.redo.pop();if(!x)return;state.undo.push(snapshotData());restoreSnapshot(x)});
 $("#save").addEventListener("click",()=>{const d={schemaVersion:1,app:"CircuitLab Edu",components:state.components,wires:state.wires,junctions:state.junctions,level:state.level};const u=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:"application/json"})),a=document.createElement("a");a.href=u;a.download="circuitlab-edu-circuit.json";a.click();URL.revokeObjectURL(u);$("#statusText").textContent=t("saved")});
 $("#open").addEventListener("click",()=>$("#fileInput").click());$("#fileInput").addEventListener("change",async e=>{try{if(!e.target.files?.[0])return;const d=JSON.parse(await e.target.files[0].text());if(d.schemaVersion!==1||!Array.isArray(d.components)||!Array.isArray(d.wires)||(d.junctions!==undefined&&!Array.isArray(d.junctions))||d.components.length>500||d.wires.length>2000||(d.junctions||[]).length>1000)throw Error("Invalid document shape");const badComponent=d.components.some(c=>{if(!c||!defaults[c.type]||typeof c.id!=="string"||!Number.isFinite(c.x)||!Number.isFinite(c.y)||c.x<0||c.x>900||c.y<0||c.y>510||(c.rotation!==undefined&&![0,90,180,270].includes(c.rotation)))return true;if(c.type==="switch"&&typeof c.closed!=="boolean")return true;if(c.type==="acSource"&&(!Number.isFinite(Number(c.amplitude))||Number(c.amplitude)<0||!Number.isFinite(Number(c.frequency))||Number(c.frequency)<=0||!Number.isFinite(Number(c.phase??0))||!Number.isFinite(Number(c.offset??0))))return true;if(c.type==="capacitor"&&(!Number.isFinite(Number(c.capacitance))||Number(c.capacitance)<=0||!Number.isFinite(Number(c.initialVoltage??0))))return true;if(c.type==="inductor"&&(!Number.isFinite(Number(c.inductance))||Number(c.inductance)<=0||!Number.isFinite(Number(c.initialCurrent??0))))return true;return false});if(badComponent)throw Error("Invalid component");if((d.junctions||[]).some(j=>!j||!Number.isFinite(j.x)||!Number.isFinite(j.y)||j.x<0||j.x>900||j.y<0||j.y>510))throw Error("Invalid junction coordinates");const v=validateCircuit(d.components,d.wires,d.junctions||[]);if(!v.valid)throw Error(v.errors[0].message);const ids=new Set();for(const c of d.components){if(ids.has(c.id))throw Error("Duplicate component ID");ids.add(c.id)}snap();state.components=d.components.map(c=>({...c}));state.wires=d.wires.map(w=>({...w}));state.junctions=(d.junctions||[]).map(j=>({...j}));state.nextId=Math.max(1,...state.components.map(c=>Number(c.id.slice(1))+1||1),...state.wires.map(w=>Number(w.id.slice(1))+1||1),...state.junctions.map(j=>Number(j.id.replace(/^j/,""))+1||1));state.level=["primary","middle","high"].includes(d.level)?d.level:state.level;$("#level").value=state.level;state.selected=null;state.pending=null;invalidateSimulation();updateLevel();render()}catch{$("#statusText").textContent=t("loadFailed")}e.target.value=""});
-function example(which){
-  snap();
-  state.components=[];
-  state.wires=[];
-  state.junctions=[];
-  state.nextId=1;
-  state.selected=null;
-  state.pending=null;
-  invalidateSimulation();
-  const addLocal=(type,x,y,props={})=>{const c=Object.assign({id:id(),type,x,y},defaults[type],props);state.components.push(c);return c};
-  const w=(a,b)=>state.wires.push({id:"w"+state.nextId++,from:a,to:b});
-  const isAC=which==="ac-resistor"||which==="ac-rc";
-  const source=isAC?addLocal("acSource",150,255,{amplitude:5,frequency:50,phase:0,offset:0,name:"AC 5V"}):addLocal("battery",150,255,{voltage:9,name:"9V"});
+function buildParallelBranches(source,branches,x1,x2,w,addJunc){
+  const j1=addJunc(x1,255),j2=addJunc(x2,255);
+  w(source.id+":a",j1);w(j2,source.id+":b");
+  for(const b of branches){
+    w(j1,b[0].id+":a");
+    for(let k=0;k<b.length-1;k++)w(b[k].id+":b",b[k+1].id+":a");
+    w(b.at(-1).id+":b",j2);
+  }
+}
+function buildParallelPreset(source,which,addLocal,w,addJunc){
+  if(which==="parallel"){
+    const l1=addLocal("lamp",420,190),l2=addLocal("lamp",420,330);
+    buildParallelBranches(source,[[l1],[l2]],80,474,w,addJunc);state.selected=l1.id;
+  }else if(which==="parallel-switches"||which==="switch-branch"){
+    const sw1=addLocal("switch",310,190,{closed:true}),l1=addLocal("lamp",500,190);
+    const sw2=addLocal("switch",310,330,{closed:true}),l2=addLocal("lamp",500,330);
+    buildParallelBranches(source,[[sw1,l1],[sw2,l2]],80,554,w,addJunc);state.selected=l1.id;
+  }else if(which==="parallel-resistors"){
+    const r1=addLocal("resistor",420,190,{resistance:100,name:"100 Ω"}),r2=addLocal("resistor",420,330,{resistance:200,name:"200 Ω"});
+    buildParallelBranches(source,[[r1],[r2]],80,474,w,addJunc);state.selected=r1.id;
+  }else if(which==="power-loads"){
+    const r=addLocal("resistor",420,190,{resistance:100,name:"100 Ω"}),lamp=addLocal("lamp",420,330);
+    buildParallelBranches(source,[[r],[lamp]],80,474,w,addJunc);state.selected=lamp.id;
+  }else if(which==="mixed-network"){
+    const r=addLocal("resistor",300,255,{resistance:100,name:"100 Ω"}),l1=addLocal("lamp",520,190),l2=addLocal("lamp",520,330);
+    const j1=addJunc(370,255),j2=addJunc(574,255);
+    w(source.id+":a",r.id+":a");w(r.id+":b",j1);w(j1,l1.id+":a");w(j1,l2.id+":a");
+    w(l1.id+":b",j2);w(l2.id+":b",j2);w(j2,source.id+":b");state.selected=r.id;
+  }
+}
+function buildSeriesPreset(source,which,addLocal,w){
   const addSeries=(types,props=[])=>{
     const parts=types.map((type,i)=>addLocal(type,330+i*175,255,props[i]||{}));
     w(source.id+":a",parts[0].id+":a");
@@ -267,41 +288,29 @@ function example(which){
   }else if(which==="series"||which==="two-lamps-series"){
     const lamps=[addLocal("lamp",380,255),addLocal("lamp",590,255)];
     w(source.id+":a",lamps[0].id+":a");w(lamps[0].id+":b",lamps[1].id+":a");w(lamps[1].id+":b",source.id+":b");state.selected=lamps[0].id;
-  }else if(which==="parallel"){
-    const lamps=[addLocal("lamp",420,190),addLocal("lamp",420,330)];
-    for(const lamp of lamps){w(source.id+":a",lamp.id+":a");w(lamp.id+":b",source.id+":b")}state.selected=lamps[0].id;
   }else if(which==="two-switch-series"){
     const sw1=addLocal("switch",300,255,{closed:true}),sw2=addLocal("switch",455,255,{closed:true}),lamp=addLocal("lamp",625,255);
     w(source.id+":a",sw1.id+":a");w(sw1.id+":b",sw2.id+":a");w(sw2.id+":b",lamp.id+":a");w(lamp.id+":b",source.id+":b");state.selected=sw1.id;
-  }else if(which==="parallel-switches"||which==="switch-branch"){
-    const sw1=addLocal("switch",310,190,{closed:true}),l1=addLocal("lamp",500,190),sw2=addLocal("switch",310,330,{closed:true}),l2=addLocal("lamp",500,330);
-    for(const [sw,lamp] of [[sw1,l1],[sw2,l2]]){w(source.id+":a",sw.id+":a");w(sw.id+":b",lamp.id+":a");w(lamp.id+":b",source.id+":b")}state.selected=l1.id;
-  }else if(which==="resistor-series"){
-    addSeries(["resistor","resistor"],[{resistance:100,name:"100 Ω"},{resistance:200,name:"200 Ω"}]);
-  }else if(which==="parallel-resistors"){
-    const r1=addLocal("resistor",420,190,{resistance:100,name:"100 Ω"}),r2=addLocal("resistor",420,330,{resistance:200,name:"200 Ω"});
-    for(const r of [r1,r2]){w(source.id+":a",r.id+":a");w(r.id+":b",source.id+":b")}state.selected=r1.id;
-  }else if(which==="mixed-network"){
-    const r=addLocal("resistor",300,255,{resistance:100,name:"100 Ω"}),l1=addLocal("lamp",520,190),l2=addLocal("lamp",520,330);
-    w(source.id+":a",r.id+":a");w(r.id+":b",l1.id+":a");w(r.id+":b",l2.id+":a");w(l1.id+":b",source.id+":b");w(l2.id+":b",source.id+":b");state.selected=r.id;
-  }else if(which==="voltage-divider"){
-    addSeries(["resistor","resistor"],[{resistance:100,name:"R1 · 100 Ω"},{resistance:200,name:"R2 · 200 Ω"}]);
-  }else if(which==="meter-series"){
-    addSeries(["ammeter","resistor"],[{name:"A1"},{resistance:100,name:"100 Ω"}]);
-  }else if(which==="rc"){
-    addSeries(["resistor","capacitor"],[{resistance:1000,name:"1 kΩ"},{capacitance:0.00001,initialVoltage:0,name:"10 µF"}]);
-  }else if(which==="rl"){
-    addSeries(["resistor","inductor"],[{resistance:100,name:"100 Ω"},{inductance:0.1,initialCurrent:0,name:"100 mH"}]);
-  }else if(which==="rlc"){
-    addSeries(["resistor","capacitor","inductor"],[{resistance:100,name:"100 Ω"},{capacitance:0.00001,initialVoltage:0,name:"10 µF"},{inductance:0.1,initialCurrent:0,name:"100 mH"}]);
-  }else if(which==="ac-resistor"){
-    addSeries(["resistor"],[{resistance:100,name:"100 Ω"}]);
-  }else if(which==="ac-rc"){
-    addSeries(["resistor","capacitor"],[{resistance:1000,name:"1 kΩ"},{capacitance:0.00001,initialVoltage:0,name:"10 µF"}]);
-  }else if(which==="power-loads"){
-    const r=addLocal("resistor",420,190,{resistance:100,name:"100 Ω"}),lamp=addLocal("lamp",420,330);
-    for(const part of [r,lamp]){w(source.id+":a",part.id+":a");w(part.id+":b",source.id+":b")}state.selected=lamp.id;
-  }
+  }else if(which==="resistor-series")addSeries(["resistor","resistor"],[{resistance:100,name:"100 Ω"},{resistance:200,name:"200 Ω"}]);
+  else if(which==="voltage-divider")addSeries(["resistor","resistor"],[{resistance:100,name:"R1 · 100 Ω"},{resistance:200,name:"R2 · 200 Ω"}]);
+  else if(which==="meter-series")addSeries(["ammeter","resistor"],[{name:"A1"},{resistance:100,name:"100 Ω"}]);
+  else if(which==="rc")addSeries(["resistor","capacitor"],[{resistance:1000,name:"1 kΩ"},{capacitance:0.00001,initialVoltage:0,name:"10 µF"}]);
+  else if(which==="rl")addSeries(["resistor","inductor"],[{resistance:100,name:"100 Ω"},{inductance:0.1,initialCurrent:0,name:"100 mH"}]);
+  else if(which==="rlc")addSeries(["resistor","capacitor","inductor"],[{resistance:100,name:"100 Ω"},{capacitance:0.00001,initialVoltage:0,name:"10 µF"},{inductance:0.1,initialCurrent:0,name:"100 mH"}]);
+  else if(which==="ac-resistor")addSeries(["resistor"],[{resistance:100,name:"100 Ω"}]);
+  else if(which==="ac-rc")addSeries(["resistor","capacitor"],[{resistance:1000,name:"1 kΩ"},{capacitance:0.00001,initialVoltage:0,name:"10 µF"}]);
+}
+function example(which){
+  snap();state.components=[];state.wires=[];state.junctions=[];
+  state.nextId=1;state.selected=null;state.pending=null;invalidateSimulation();
+  const addLocal=(type,x,y,props={})=>{const c=Object.assign({id:id(),type,x,y},defaults[type],props);state.components.push(c);return c};
+  const w=(a,b)=>state.wires.push({id:"w"+state.nextId++,from:a,to:b});
+  const addJunc=(x,y)=>{const j={id:"j"+state.nextId++,x,y};state.junctions.push(j);return "j:"+j.id};
+  const isAC=which==="ac-resistor"||which==="ac-rc";
+  const source=isAC?addLocal("acSource",150,255,{amplitude:5,frequency:50,phase:0,offset:0,name:"AC 5V"}):addLocal("battery",150,255,{voltage:9,name:"9V"});
+  if(["parallel","parallel-switches","switch-branch","parallel-resistors","mixed-network","power-loads"].includes(which)){
+    buildParallelPreset(source,which,addLocal,w,addJunc);
+  }else buildSeriesPreset(source,which,addLocal,w);
   render();
   state.results=solveCircuit(state.components,state.wires,state.junctions);
   state.running=true;

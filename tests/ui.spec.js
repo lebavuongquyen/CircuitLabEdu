@@ -1607,6 +1607,41 @@ test("parallel branch wires sharing a corridor route along separate offset lanes
   expect(uniquePaths.size).toBe(3);
 });
 
+test("parallel preset wires branches with right-angle corners and no duplicate parallel tracks", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('.lesson[data-example="parallel"]').click();
+
+  await expect(page.locator(".wire-routing-error")).toHaveCount(0);
+  await expect(page.locator(".junction-terminal")).toHaveCount(2);
+
+  // Drop ammeter onto top lamp branch wire
+  const dropCoords = await page.locator("[data-wire]").evaluateAll(elements => {
+    const el = elements[1] || elements[0];
+    const pt = el.getPointAtLength(el.getTotalLength() / 2);
+    const client = pt.matrixTransform(el.getScreenCTM());
+    return { clientX: client.x, clientY: client.y };
+  });
+
+  await page.evaluate(({ clientX, clientY }) => {
+    const target = document.querySelector("#canvasWrap");
+    const dt = new DataTransfer();
+    dt.setData("text/plain", "ammeter");
+    target.dispatchEvent(new DragEvent("drop", { bubbles: true, cancelable: true, clientX, clientY, dataTransfer: dt }));
+  }, dropCoords);
+
+  await expect(page.locator(".wire-routing-error")).toHaveCount(0);
+  await expect(page.locator('[data-node]')).toHaveCount(4);
+
+  const paths = await page.locator(".wire-group path.wire").evaluateAll(els => els.map(el => el.getAttribute("d")));
+  const uniquePaths = new Set(paths);
+  expect(uniquePaths.size).toBe(paths.length);
+
+  // Solve and verify readings
+  await page.locator("#run").click();
+  await expect(page.locator("#statusText")).toContainText(/Closed circuit|Mạch kín/);
+  await expect(page.locator("#currentMetric")).toContainText(/2\.99|3/);
+});
+
 
 
 
