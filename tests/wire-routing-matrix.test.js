@@ -849,3 +849,40 @@ test("Case 53: 3-element series circuit (Battery - Switch - Lamp) clears labels 
     assert.equal(intersectsRect(p1, p2, { l: 130 - 20, r: 130 + 20, t: 226 - 42, b: 226 - 22 }), false, "w3 must not intersect battery rotate button");
   }
 });
+
+test("Case 54: 3-branch parallel circuit routes straight horizontal lines into common junction bus without redundant jogs", () => {
+  const c = [
+    { id: "bat", type: "battery", x: 150, y: 105, rotation: 0 },
+    { id: "cap", type: "capacitor", x: 349, y: 105, rotation: 0 },
+    { id: "lamp1", type: "lamp", x: 200, y: 221, rotation: 0 },
+    { id: "lamp2", type: "lamp", x: 327, y: 221, rotation: 0 },
+    { id: "lamp3", type: "lamp", x: 383, y: 288, rotation: 0 }
+  ];
+  const j = [
+    { id: "j1", x: 436, y: 221 }
+  ];
+  const w = [
+    { id: "w1", from: "cap:b", to: "j:j1" },
+    { id: "w2", from: "lamp3:b", to: "j:j1" },
+    { id: "w3", from: "lamp2:b", to: "j:j1" }
+  ];
+  const routes = routeCircuit(c, w, j);
+  assertRoutingQuality(routes, c, j);
+
+  const r1 = routes.find(r => r.w.id === "w1");
+  assert.ok(r1, "w1 must be routed");
+  assert.deepEqual(r1.points, [
+    { x: 385, y: 105 },
+    { x: 403, y: 105 },
+    { x: 436, y: 105 },
+    { x: 436, y: 221 }
+  ]);
+
+  const r3 = routes.find(r => r.w.id === "w3");
+  assert.ok(r3, "w3 must be routed");
+  assert.deepEqual(r3.points, [
+    { x: 363, y: 221 },
+    { x: 381, y: 221 },
+    { x: 436, y: 221 }
+  ]);
+});

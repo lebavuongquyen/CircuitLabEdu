@@ -121,7 +121,7 @@ export interface Obstacle {
 export function validateCircuit(components: CircuitComponent[], wires: Wire[], junctions?: Junction[]): CircuitValidationResult;
 export function solveCircuit(components: CircuitComponent[], wires: Wire[], junctions?: Junction[]): CircuitSolveResult;
 export function simulateTransient(components: CircuitComponent[], wires: Wire[], options?: TransientOptions, junctions?: Junction[]): CircuitSolveResult;
-export function routeOrthogonal(start: Point, end: Point, obstacles?: Obstacle[]): Point[];
+export function routeOrthogonal(start: Point, end: Point, obstacles?: Obstacle[], options?: { va?: Point | null; vb?: Point | null }): Point[];
 export function getComponentObstacles(wire: Wire, components?: CircuitComponent[], junctions?: Junction[], options?: { excludeComponentId?: string | null }): Obstacle[];
 export function trimSegmentObstacle(u: Point, v: Point, endpoints: Point[], thickness?: number): Obstacle | null;
 export function getPriorWireObstacles(priorRoutes?: Array<{ points: Point[] }>, endpoints?: Point[], thickness?: number): Obstacle[];

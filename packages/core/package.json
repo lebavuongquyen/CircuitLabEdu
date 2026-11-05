@@ -1,6 +1,6 @@
 {
   "name": "@quyenlbv/circuitlab-core",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Framework-independent circuit model validation and electrical simulation engine for CircuitLabEdu",
   "type": "module",
   "main": "./src/index.js",
@@ -12,23 +12,28 @@
   "exports": {
     ".": {
       "types": "./src/index.d.ts",
-      "import": "./src/index.js"
+      "import": "./src/index.js",
+      "default": "./src/index.js"
     },
     "./solver": {
       "types": "./src/solver.d.ts",
-      "import": "./src/solver.js"
+      "import": "./src/solver.js",
+      "default": "./src/solver.js"
     },
     "./transient": {
       "types": "./src/transient.d.ts",
-      "import": "./src/transient.js"
+      "import": "./src/transient.js",
+      "default": "./src/transient.js"
     },
     "./wire-router": {
       "types": "./src/wire-router.d.ts",
-      "import": "./src/wire-router.js"
+      "import": "./src/wire-router.js",
+      "default": "./src/wire-router.js"
     },
     "./viewport": {
       "types": "./src/viewport.d.ts",
-      "import": "./src/viewport.js"
+      "import": "./src/viewport.js",
+      "default": "./src/viewport.js"
     }
   },
   "engines": {

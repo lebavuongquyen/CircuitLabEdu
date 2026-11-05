@@ -1643,6 +1643,70 @@ test("parallel preset wires branches with right-angle corners and no duplicate p
   await expect(page.locator("#currentMetric")).toContainText(/2\.99|3/);
 });
 
+test("rotate button is in the top-right corner and clickable when vertically rotated and connected", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('.lesson[data-example="simple"]').click();
+  await page.locator('[data-node="c2"]').click();
+  const rotateBtn = page.locator('[data-node="c2"] [data-action="rotate"]');
+  await expect(rotateBtn).toHaveAttribute("transform", "translate(28 -28)");
+  await rotateBtn.click();
+  await expect(page.locator('[data-node="c2"] .body-wrap')).toHaveAttribute("transform", "rotate(90)");
+
+  await expect(page.locator('[data-terminal="c2:a"]')).toHaveAttribute("cx", "0");
+  await expect(page.locator('[data-terminal="c2:a"]')).toHaveAttribute("cy", "-36");
+  await expect(rotateBtn).toHaveAttribute("transform", "translate(28 -28)");
+
+  await rotateBtn.click();
+  await expect(page.locator('[data-node="c2"] .body-wrap')).toHaveAttribute("transform", "rotate(180)");
+});
+
+test("dragging an unconnected component inside canvas does not reroute existing wires and drops onto wire to auto-connect", async ({ page }) => {
+  test.skip(test.info().project.name === "chromium-mobile", "Drag gesture with mouse coordinates is desktop-tested");
+  await page.goto("/");
+  await page.locator('.lesson[data-example="simple"]').click();
+  await expect(page.locator("[data-wire]")).toHaveCount(3);
+
+  await page.locator('[data-type="resistor"]').click();
+  await expect(page.locator("[data-node]")).toHaveCount(4);
+
+  const initialWirePaths = await page.locator(".wire-group path.wire").evaluateAll(els => els.map(el => el.getAttribute("d")));
+  expect(initialWirePaths).toHaveLength(3);
+
+  const resistorNode = page.locator("[data-node]").last();
+  const resistorBox = await resistorNode.boundingBox();
+  expect(resistorBox).toBeTruthy();
+
+  const targetWire = await page.locator("[data-wire]").evaluateAll(elements => {
+    const el = elements.sort((a, b) => b.getTotalLength() - a.getTotalLength())[0];
+    const pt = el.getPointAtLength(el.getTotalLength() / 2);
+    const matrix = pt.matrixTransform(el.getScreenCTM());
+    return { x: matrix.x, y: matrix.y, id: el.closest(".wire-group").dataset.wireGroup };
+  });
+
+  const startX = resistorBox.x + resistorBox.width / 2;
+  const startY = resistorBox.y + resistorBox.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+
+  const midX = (startX + targetWire.x) / 2;
+  const midY = (startY + targetWire.y) / 2;
+  await page.mouse.move(midX, midY, { steps: 5 });
+
+  const midWirePaths = await page.locator(".wire-group path.wire").evaluateAll(els => els.map(el => el.getAttribute("d")));
+  expect(midWirePaths).toEqual(initialWirePaths);
+
+  await page.mouse.move(targetWire.x, targetWire.y, { steps: 5 });
+  await expect(page.locator(".wire-snap-candidate")).toHaveCount(1);
+
+  await page.mouse.up();
+  await expect(page.locator("[data-node]")).toHaveCount(4);
+  await expect(page.locator("[data-wire]")).toHaveCount(4);
+
+  await page.locator("#run").click();
+  await expect(page.locator("#statusText")).toContainText(/Closed circuit|Mạch kín/);
+});
+
 
 
 

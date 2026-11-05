@@ -46,7 +46,24 @@ function generateCandidates(start, end, obstacles) {
   return candidates;
 }
 
-function evaluateCandidate(points, obstacles) {
+function terminalDirectionPenalty(points, va, vb) {
+  if (points.length < 2) return 0;
+  let penalty = 0;
+  if (va) {
+    const dx = Math.sign(points[1].x - points[0].x), dy = Math.sign(points[1].y - points[0].y);
+    if (va.x !== 0 && dx !== Math.sign(va.x)) penalty += (dx === -Math.sign(va.x) ? 40 : 20);
+    if (va.y !== 0 && dy !== Math.sign(va.y)) penalty += (dy === -Math.sign(va.y) ? 40 : 20);
+  }
+  if (vb) {
+    const last = points.length - 1;
+    const dx = Math.sign(points[last].x - points[last - 1].x), dy = Math.sign(points[last].y - points[last - 1].y);
+    if (vb.x !== 0 && dx !== -Math.sign(vb.x)) penalty += (dx === Math.sign(vb.x) ? 40 : 20);
+    if (vb.y !== 0 && dy !== -Math.sign(vb.y)) penalty += (dy === Math.sign(vb.y) ? 40 : 20);
+  }
+  return penalty;
+}
+
+function evaluateCandidate(points, obstacles, va = null, vb = null) {
   let cost = 0;
   for (let i = 1; i < points.length; i++) {
     if (isSegmentBlocked(points[i - 1], points[i], obstacles)) return null;
@@ -56,7 +73,7 @@ function evaluateCandidate(points, obstacles) {
       if ((a.x === b.x) !== (b.x === c.x)) cost += 18;
     }
   }
-  return cost;
+  return cost + terminalDirectionPenalty(points, va, vb);
 }
 
 function findFallbackRoute(start, end, obstacles) {
@@ -73,12 +90,13 @@ function findFallbackRoute(start, end, obstacles) {
   return [];
 }
 
-export function routeOrthogonal(start, end, obstacles = []) {
+export function routeOrthogonal(start, end, obstacles = [], options = {}) {
+  const { va = null, vb = null } = options;
   const candidates = generateCandidates(start, end, obstacles);
   let best = null, bestCost = Infinity;
   for (const candidate of candidates) {
     const points = cleanPoints(candidate);
-    const cost = evaluateCandidate(points, obstacles);
+    const cost = evaluateCandidate(points, obstacles, va, vb);
     if (cost !== null && cost < bestCost) {
       best = points;
       bestCost = cost;
@@ -112,10 +130,10 @@ function resolveTerminalPoint(key, components, junctions = []) {
   return c ? getTerminalCoord(c, side) : null;
 }
 
-function clampObstacle(obs, c, components) {
+function clampObstacle(obs, c, components, excludeComponentId = null) {
   let { l, r, t, b, type } = obs;
   for (const other of components) {
-    if (other.id === c.id) continue;
+    if (other.id === c.id || other.id === excludeComponentId) continue;
     const pts = [getTerminalCoord(other, "a"), getTerminalCoord(other, "b")];
     pts.push({ x: pts[0].x + terminalVector(other, "a", 18).x, y: pts[0].y + terminalVector(other, "a", 18).y });
     pts.push({ x: pts[1].x + terminalVector(other, "b", 18).x, y: pts[1].y + terminalVector(other, "b", 18).y });
@@ -129,7 +147,7 @@ function clampObstacle(obs, c, components) {
   return t < b ? { l, r, t, b, type } : null;
 }
 
-function buildSingleComponentObstacles(c, wire, components = []) {
+function buildSingleComponentObstacles(c, wire, components = [], excludeComponentId = null) {
   const isConnA = wire.from === c.id + ":a" || wire.to === c.id + ":a";
   const isConnB = wire.from === c.id + ":b" || wire.to === c.id + ":b";
   const isRot = (c.rotation || 0) % 180 !== 0;
@@ -150,8 +168,8 @@ function buildSingleComponentObstacles(c, wire, components = []) {
     }
   }
   if (!isRot) {
-    const o1 = clampObstacle({ l: c.x - 32, r: c.x + 32, t: c.y + 18, b: c.y + 64, type: "comp" }, c, components);
-    const o2 = clampObstacle({ l: c.x - 24, r: c.x + 24, t: c.y - 36, b: c.y - 18, type: "comp" }, c, components);
+    const o1 = clampObstacle({ l: c.x - 32, r: c.x + 32, t: c.y + 18, b: c.y + 64, type: "comp" }, c, components, excludeComponentId);
+    const o2 = clampObstacle({ l: c.x - 24, r: c.x + 24, t: c.y - 36, b: c.y - 18, type: "comp" }, c, components, excludeComponentId);
     if (o1) list.push(o1);
     if (o2) list.push(o2);
   }
@@ -163,7 +181,7 @@ export function getComponentObstacles(wire, components = [], junctions = [], opt
   const list = [];
   for (const c of components) {
     if (c.id === excludeComponentId) continue;
-    list.push(...buildSingleComponentObstacles(c, wire, components));
+    list.push(...buildSingleComponentObstacles(c, wire, components, excludeComponentId));
   }
   for (const j of junctions) {
     if (wire.from !== "j:" + j.id && wire.to !== "j:" + j.id) {
@@ -218,12 +236,12 @@ export function routeWire(w, components = [], junctions = [], priorRoutes = [], 
   const start = { x: a.x + va.x, y: a.y + va.y }, end = { x: b.x + vb.x, y: b.y + vb.y };
   const compObstacles = getComponentObstacles(w, components, junctions, options);
   const wireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 4);
-  let routed = routeOrthogonal(start, end, [...compObstacles, ...wireObstacles]);
+  let routed = routeOrthogonal(start, end, [...compObstacles, ...wireObstacles], { va, vb });
   if (!routed.length) {
     const thinWireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 1);
-    routed = routeOrthogonal(start, end, [...compObstacles, ...thinWireObstacles]);
+    routed = routeOrthogonal(start, end, [...compObstacles, ...thinWireObstacles], { va, vb });
   }
-  if (!routed.length) routed = routeOrthogonal(start, end, compObstacles);
+  if (!routed.length) routed = routeOrthogonal(start, end, compObstacles, { va, vb });
   const full = routed.length ? [a, ...routed, b] : [];
   return full.filter((p, i) => i === 0 || Math.hypot(p.x - full[i - 1].x, p.y - full[i - 1].y) > 0.1);
 }
