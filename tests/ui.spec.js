@@ -673,12 +673,13 @@ test("dragging a wire reshapes it with a new junction, and dragging a junction r
 });
 
 test("grade curriculum filters lessons, opens every circuit and checks lesson requirements", async ({ page }) => {
+  test.setTimeout(60000);
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   await page.goto("/");
   await page.locator("#language").selectOption("en");
-  const expectations = { primary: 4, middle: 7, high: 9 };
+  const expectations = { primary: 30, middle: 30, high: 30 };
   for (const level of ["primary", "middle", "high"]) {
     await page.locator("#level").selectOption(level);
     const cards = page.locator("[data-curriculum-lesson]");

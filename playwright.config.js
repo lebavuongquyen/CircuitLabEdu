@@ -18,7 +18,7 @@ export default defineConfig({
     { name: "chromium-mobile", use: { ...devices["Pixel 7"], viewport: { width: 412, height: 915 } } }
   ],
   webServer: [
-    { command: "npm start", url: "http://127.0.0.1:4173", reuseExistingServer: false, timeout: 15000 },
+    { command: "npm start", url: "http://127.0.0.1:4173", reuseExistingServer: true, timeout: 15000 },
     { command: "npx vite --host 127.0.0.1 --port 4174 --strictPort", url: "http://127.0.0.1:4174/tests/fixtures/react-canvas.html", reuseExistingServer: true, timeout: 15000 }
   ]
 });

@@ -48,5 +48,8 @@ export interface LessonAssessmentResult {
 }
 
 export const lessons: Lesson[];
+export const primaryLessons: Lesson[];
+export const middleLessons: Lesson[];
+export const highLessons: Lesson[];
 export function validateLesson(lesson: unknown): LessonValidationResult;
 export function assessCircuit(lesson: Lesson, result: CircuitSolveResult | null | undefined, components?: CircuitComponent[]): LessonAssessmentResult;

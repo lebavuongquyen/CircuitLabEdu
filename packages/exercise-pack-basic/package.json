@@ -1,6 +1,6 @@
 {
   "name": "@quyenlbv/circuitlab-exercise-pack-basic",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Bilingual sample exercise pack for CircuitLabEdu",
   "type": "module",
   "main": "./src/index.js",

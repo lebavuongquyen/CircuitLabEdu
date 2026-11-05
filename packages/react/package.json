@@ -1,6 +1,6 @@
 {
   "name": "@quyenlbv/circuitlab-react",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Responsive React SVG viewport adapter for CircuitLab Edu",
   "type": "module",
   "main": "./src/index.js",

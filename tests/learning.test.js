@@ -53,9 +53,9 @@ test("transient simulator rejects unsupported topology", () => {
 });
 
 test("built-in lessons have valid bilingual schema", () => {
-  assert.equal(lessons.length, 20);
+  assert.equal(lessons.length, 90);
   for (const lesson of lessons) assert.equal(validateLesson(lesson).valid, true, lesson.id);
-  assert.deepEqual(Object.fromEntries(["primary", "middle", "high"].map(level => [level, lessons.filter(lesson => lesson.level === level).length])), { primary: 4, middle: 7, high: 9 });
+  assert.deepEqual(Object.fromEntries(["primary", "middle", "high"].map(level => [level, lessons.filter(lesson => lesson.level === level).length])), { primary: 30, middle: 30, high: 30 });
   assert.ok(lessons.every(lesson => typeof lesson.example === "string" && lesson.example.length > 0));
 });
 

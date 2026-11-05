@@ -7,7 +7,7 @@ test('React workbench mounts with lessons supplied by an external package and no
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(labUrl);
   await expect(page.getByRole('heading', { name: 'Phòng thử nghiệm React' })).toBeVisible();
-  await expect(page.locator('#lesson-select option')).toHaveCount(20);
+  await expect(page.locator('#lesson-select option')).toHaveCount(90);
   await expect(page.getByTestId('pack-status')).toContainText('@quyenlbv/circuitlab-exercise-pack-basic');
   await expect(page.getByTestId('canvas-frame').locator('svg')).toBeVisible();
   expect(errors).toEqual([]);
@@ -76,7 +76,7 @@ test('invalid external pack is rejected while current pack remains available', a
   await page.locator('#pack-file').setInputFiles({ name: 'bad-pack.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ lessons: [{ id: 'bad' }] })) });
   await expect(page.locator('.notice')).toContainText('Pack không hợp lệ');
   await expect(page.getByTestId('pack-status')).toContainText('@quyenlbv/circuitlab-exercise-pack-basic');
-  await expect(page.locator('#lesson-select option')).toHaveCount(20);
+  await expect(page.locator('#lesson-select option')).toHaveCount(90);
 });
 
 test('changing a solved circuit invalidates stale readings until the next simulation', async ({ page }) => {
@@ -108,7 +108,7 @@ test('duplicate lesson IDs are rejected and the active pack is preserved', async
   });
   await expect(page.locator('.notice')).toContainText('Pack không hợp lệ');
   await expect(page.getByTestId('pack-status')).toContainText('@quyenlbv/circuitlab-exercise-pack-basic');
-  await expect(page.locator('#lesson-select option')).toHaveCount(20);
+  await expect(page.locator('#lesson-select option')).toHaveCount(90);
 });
 
 test('React workbench remains usable at phone width without horizontal overflow', async ({ page }) => {
