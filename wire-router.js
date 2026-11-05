@@ -1,1 +1,10 @@
-export { routeOrthogonal } from "./packages/core/src/wire-router.js";
+export {
+  routeOrthogonal,
+  getComponentObstacles,
+  trimSegmentObstacle,
+  getPriorWireObstacles,
+  routeWire,
+  rotatePoint,
+  getTerminalCoord,
+  terminalVector,
+} from "./packages/core/src/wire-router.js";

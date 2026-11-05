@@ -1,7 +1,7 @@
 import { solveCircuit, validateCircuit } from "./solver.js";
 import { simulateTransient } from "./transient.js";
 import { lessons, assessCircuit, validateLesson } from "./lessons.js";
-import { routeOrthogonal } from "./wire-router.js";
+import { routeWire as coreRouteWire, getTerminalCoord as p, terminalVector } from "./wire-router.js";
 const $=s=>document.querySelector(s);
 const tr={
 vi:{battery:"Pin / Nguồn DC",acSource:"Nguồn AC",acAmplitude:"Biên độ đỉnh (V)",acFrequency:"Tần số (Hz)",acPhase:"Pha (độ)",acOffset:"Độ lệch DC (V)",lamp:"Bóng đèn",resistor:"Điện trở",switch:"Công tắc",ammeter:"Ampe kế",voltmeter:"Vôn kế",capacitor:"Tụ điện",inductor:"Cuộn cảm",switchHint:"Nhấn để đóng / mở",voltage:"Điện áp nguồn",current:"Cường độ dòng điện",power:"Công suất tiêu thụ",resistanceTotal:"Điện trở tương đương",closed:"Đóng",openState:"Mở",selected:"Đã chọn",voltageProp:"Điện áp (V)",resistanceProp:"Điện trở (Ω)",state:"Trạng thái",delete:"Xóa linh kiện",selectPrompt:"Chọn một linh kiện để xem hoặc thay đổi thông số.",explainDefault:"Chạy mô phỏng để xem dòng điện, điện áp và lời giải thích.",closedCircuit:"Mạch kín! Các giá trị được tính từ thông số linh kiện.",summaryUnavailable:"Không thể đưa ra U/I/R tổng hợp đáng tin cậy cho mạch có nhiều nguồn phân nhánh. Hãy xem số đo từng linh kiện; tổng công suất tải vẫn có giá trị.",openCircuit:"Mạch đang hở. Hãy nối thành một vòng kín qua tải.",noSource:"Hãy thêm nguồn điện để cấp năng lượng cho mạch.",short:"Lỗi: hai cực nguồn bị nối trực tiếp với nhau.",invalid:"Mạch chưa hoàn chỉnh hoặc có nhánh bị treo. Hãy kiểm tra dây nối.",notRun:"Chưa chạy mô phỏng",component:"linh kiện",wire:"dây",primary:"Khám phá cơ bản",middle:"Khám phá nguyên lý",high:"Phân tích nâng cao",hintText:"Để đèn sáng, cần một đường dẫn liên tục từ cực dương qua bóng đèn trở về cực âm. Chọn hai chân để nối dây; nhấn công tắc để đóng mạch.",saved:"Đã tải xuống sơ đồ mạch.",loadFailed:"Không thể đọc tệp mạch.",noCurrent:"Chưa có dòng điện qua tải.",transient:"Mô phỏng quá độ",transientRun:"Chạy mô phỏng quá độ",transientDuration:"Thời gian (s)",transientStep:"Bước thời gian (s)",transientFail:"Không thể mô phỏng mạch quá độ.",transientStepCoarse:"Cảnh báo độ chính xác: bước thời gian có thể quá lớn so với hằng số thời gian của mạch. Hãy giảm bước và so sánh kết quả.",acSamplingCoarse:"Cảnh báo lấy mẫu: bước thời gian quá lớn so với tần số AC; hãy giảm bước để tránh bỏ lỡ biến thiên của dạng sóng.",flowAnimationCoarse:"Lưu ý hiển thị: hoạt ảnh dây cập nhật mỗi 40 ms nên có thể bỏ lỡ lần đổi chiều ở tần số AC trên 12,5 Hz; xem đồ thị và số liệu để xác nhận.",multiSourceTransientSummaryUnavailable:"Không hiển thị điện áp/dòng tổng hợp cho mạch quá độ có nhiều nguồn; hãy chọn số đo từng nguồn hoặc linh kiện.",transientDone:"Đã hoàn tất mô phỏng quá độ",transientChart:"Đáp ứng theo thời gian",checkCircuit:"Kiểm tra mạch",lessonPassed:"Đạt yêu cầu bài học.",lessonFailed:"Chưa đạt. Hãy kiểm tra lại kết nối và kết quả.",exportLesson:"Xuất bài học",importLesson:"Nhập bài học",lessonLoaded:"Đã nhập bài học.",lessonInvalid:"Tệp bài học không hợp lệ.",resetLesson:"Đặt lại bài học",createLesson:"Tạo bài học",lessonEditorSub:"Tạo bài học song ngữ có thể xuất thành JSON",lessonId:"Mã bài học",lessonLevel:"Cấp học",lessonTitleVi:"Tiêu đề tiếng Việt",lessonTitleEn:"Tiêu đề tiếng Anh",lessonObjectiveVi:"Mục tiêu tiếng Việt",lessonObjectiveEn:"Mục tiêu tiếng Anh",lessonHintsVi:"Gợi ý tiếng Việt (mỗi dòng một gợi ý)",lessonHintsEn:"Gợi ý tiếng Anh (mỗi dòng một gợi ý)",lessonExpected:"Điều kiện chấm (JSON)",lessonUseCurrent:"Dùng mạch hiện tại làm mạch bắt đầu",saveLesson:"Lưu bài học",cancel:"Hủy",lessonSaved:"Đã lưu bài học.",routeWarning:"Không thể định tuyến một số dây mà không va chạm. Hãy di chuyển linh kiện.",terminalA:"Chân A",terminalB:"Chân B",rotate:"Xoay 90°",ammeterTip:"Nối ampe kế nối tiếp với nhánh cần đo.",voltmeterTip:"Nối vôn kế song song với linh kiện cần đo.",signConvention:"U và I hiển thị theo độ lớn; dòng có dấu quy chiếu từ chân A sang chân B. Công suất nguồn dương nghĩa là nguồn đang cấp năng lượng.",tagline:"Phòng thí nghiệm mạch điện",save:"Lưu mạch",open:"Mở mạch",eyebrow:"HỌC BẰNG TRẢI NGHIỆM",heading:"Tự lắp mạch. Tự khám phá.",subheading:"Kết nối linh kiện, bật công tắc và quan sát điện học vận hành.",components:"Linh kiện",dragHint:"Kéo vào bàn thí nghiệm",experiments:"Bài thực hành",curriculumTitle:"Bài mô phỏng theo lớp",tryCircuit:"Thử một mạch mẫu",lesson1:"Thắp sáng bóng đèn",lesson1sub:"Pin · Công tắc · Bóng đèn",lesson2:"Hai đèn nối tiếp",lesson2sub:"Quan sát dòng điện",lesson3:"Hai đèn song song",lesson3sub:"So sánh các nhánh",tip:"Chọn hai đầu cực để nối dây. Nhấp dây để chọn, nhấp đúp lên dây để tạo điểm nối, nhấn Delete để xóa. Nhấn công tắc để bật/tắt.",bench:"Bàn thí nghiệm",benchSub:"Kéo linh kiện · Chạm hai chân để nối",clear:"Xóa mạch",run:"Chạy mô phỏng",emptyTitle:"Bắt đầu lắp mạch điện",emptyText:"Kéo một linh kiện từ danh sách bên trái vào đây, hoặc chọn bài thực hành.",legendCurrent:"Có dòng điện",legendWire:"Dây dẫn",observations:"Quan sát",liveReadings:"Kết quả mô phỏng",properties:"Thuộc tính",selectPart:"Chọn linh kiện trên bàn",understand:"Giải thích",why:"Vì sao mạch hoạt động như vậy?",safety:"Mô phỏng chỉ dùng linh kiện ảo điện áp thấp. Không thử nghiệm điện lưới thật.",challengeTitle:"Thử thách của bạn",challengeText:"Hãy tạo một mạch kín để thắp sáng bóng đèn.",hint:"Gợi ý",footer:"· Học vật lý bằng trải nghiệm",hintLabel:"Gợi ý"},
@@ -23,9 +23,6 @@ function restoreSnapshot(raw){const s=JSON.parse(raw);state.components=s.compone
 function add(type,x,y,props={}){snap();const c=Object.assign({id:id(),type,x,y},defaults[type],props);state.components.push(c);state.selected=c.id;invalidateSimulation();render();return c}
 function addFromPalette(type){const candidates=[];for(const y of [110,255,395])for(const x of [120,280,440,600,760])candidates.push({x,y});const position=candidates.find(point=>state.components.every(c=>Math.abs(c.x-point.x)>110||Math.abs(c.y-point.y)>95))||candidates.sort((a,b)=>Math.min(...state.components.map(c=>Math.hypot(c.x-a.x,c.y-a.y)))-Math.min(...state.components.map(c=>Math.hypot(c.x-b.x,c.y-b.y)))).at(-1)||{x:450,y:250};return add(type,position.x,position.y)}
 function cBy(id){return state.components.find(c=>c.id===id)}
-function rotatePoint(x,y,angle){const r=((angle||0)%360+360)%360;return r===90?{x:-y,y:x}:r===180?{x:-x,y:-y}:r===270?{x:y,y:-x}:{x,y}}
-function p(c,s){const q=rotatePoint(s==="a"?-36:36,0,c.rotation||0);return{x:c.x+q.x,y:c.y+q.y}}
-function terminalVector(c,s,length=1){if(!c)return{x:0,y:0};return rotatePoint(s==="a"?-length:length,0,c.rotation||0)}
 function tp(key){if(key.startsWith("j:")){const j=state.junctions.find(item=>item.id===key.slice(2));return j?{x:j.x,y:j.y}:null}const a=key.split(":");const c=cBy(a[0]);return c?p(c,a[1]):null}
 function orientTerminalToward(key,targetKey){/* Auto-orient disabled per UX requirement */}
 function captureWirePaths(excludeComponentId=null){const prior=[],paths=[];for(const wire of state.wires){const points=routeWire(wire,prior,excludeComponentId);if(points.length){paths.push({wire:{...wire},points});prior.push({w:wire,points})}}return paths}
@@ -88,76 +85,14 @@ if(reading){
   if(Number.isFinite(value))live='<g class="instrument-display"><rect x="-28" y="-43" width="56" height="17" rx="4" fill="#152b3b" stroke="'+(c.type==="ammeter"?'#39b98a':'#a78bfa')+'" stroke-width="1.2"/><text x="0" y="-31" text-anchor="middle" font-size="10" font-family="monospace" font-weight="800" fill="#b8ffdf">'+fmt(value)+unit+'</text></g>';
  }else if(["resistor","lamp","capacitor","inductor"].includes(c.type))live='<g class="instrument-display"><rect x="-38" y="-44" width="76" height="17" rx="4" fill="#152b3b" stroke="#7f9db5" stroke-width="1"/><text x="0" y="-32" text-anchor="middle" font-size="9" font-family="monospace" font-weight="700" fill="#e1f2ff">U '+fmt(reading.voltage)+'V I '+fmt(reading.current)+'A</text></g>';
 }
-const rotBtn='<g class="node-rotate" data-action="rotate" data-node-id="'+c.id+'" aria-label="'+t("rotate")+'" transform="translate(48 -32)"><circle class="rotate-btn-bg" cx="0" cy="0" r="9.5"/><text x="0" y="3.5" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff" pointer-events="none">↻</text></g>';
+const isRot = (c.rotation || 0) % 180 !== 0;
+const rotX = isRot ? 30 : 0, rotY = isRot ? 0 : (live ? -56 : -32);
+const rotBtn = '<g class="node-rotate" data-action="rotate" data-node-id="' + c.id + '" aria-label="' + t("rotate") + '" transform="translate(' + rotX + ' ' + rotY + ')"><circle class="rotate-btn-bg" cx="0" cy="0" r="9.5"/><text x="0" y="3.5" text-anchor="middle" font-size="11" font-weight="700" fill="#ffffff" pointer-events="none">↻</text></g>';
 return '<g class="node '+(state.selected===c.id?"selected ":"")+(lit?"lit":"")+'" data-node="'+c.id+'" tabindex="0" role="button" aria-label="'+esc(c.name||t(labels[c.type]))+'" transform="translate('+c.x+' '+c.y+')">'+live+'<g class="body-wrap" transform="rotate('+(((c.rotation||0)%360+360)%360)+')">'+shape+'</g><text class="node-label" x="0" y="43" text-anchor="middle">'+esc(c.name||t(labels[c.type]))+'</text><text class="node-value" x="0" y="57" text-anchor="middle">'+esc(val)+'</text><circle class="terminal '+(state.pending===c.id+":a"?"pending":"")+'" data-terminal="'+c.id+':a" tabindex="0" role="button" aria-label="'+t("terminalA")+'" cx="'+(ta.x-c.x)+'" cy="'+(ta.y-c.y)+'" r="5"/><circle class="terminal '+(state.pending===c.id+":b"?"pending":"")+'" data-terminal="'+c.id+':b" tabindex="0" role="button" aria-label="'+t("terminalB")+'" cx="'+(tb.x-c.x)+'" cy="'+(tb.y-c.y)+'" r="5"/>'+rotBtn+'</g>'
 }
-function getComponentObstacles(wire, excludeComponentId = null) {
-  const list = [];
-  for (const c of state.components) {
-    if (c.id === excludeComponentId || (drag && drag.id === c.id)) continue;
-    const isConnA = wire.from === c.id + ":a" || wire.to === c.id + ":a";
-    const isConnB = wire.from === c.id + ":b" || wire.to === c.id + ":b";
-    if (!isConnA && !isConnB) {
-      const isRot = (c.rotation || 0) % 180 !== 0;
-      list.push(isRot ? { l: c.x - 28, r: c.x + 28, t: c.y - 56, b: c.y + 56 } : { l: c.x - 56, r: c.x + 56, t: c.y - 28, b: c.y + 28 });
-    } else {
-      list.push({ l: c.x - 22, r: c.x + 22, t: c.y - 22, b: c.y + 22 });
-      if (!isConnA) { const ta = p(c, "a"); list.push({ l: ta.x - 14, r: ta.x + 14, t: ta.y - 14, b: ta.y + 14 }); }
-      if (!isConnB) { const tb = p(c, "b"); list.push({ l: tb.x - 14, r: tb.x + 14, t: tb.y - 14, b: tb.y + 14 }); }
-    }
-  }
-  for (const j of state.junctions) {
-    if (wire.from !== "j:" + j.id && wire.to !== "j:" + j.id) {
-      list.push({ l: j.x - 12, r: j.x + 12, t: j.y - 12, b: j.y + 12 });
-    }
-  }
-  return list;
-}
-function trimSegmentObstacle(u, v, endpoints, thickness = 4) {
-  let minX = Math.min(u.x, v.x), maxX = Math.max(u.x, v.x);
-  let minY = Math.min(u.y, v.y), maxY = Math.max(u.y, v.y);
-  const origL = minX, origR = maxX, origT = minY, origB = maxY;
-  for (const pt of endpoints) {
-    if (Math.hypot(u.x - pt.x, u.y - pt.y) < 6) {
-      if (Math.abs(u.y - v.y) < 0.01) { if (v.x > u.x) minX += 10; else maxX -= 10; }
-      else { if (v.y > u.y) minY += 10; else maxY -= 10; }
-    }
-    if (Math.hypot(v.x - pt.x, v.y - pt.y) < 6) {
-      if (Math.abs(u.y - v.y) < 0.01) { if (u.x > v.x) minX += 10; else maxX -= 10; }
-      else { if (u.y > v.y) minY += 10; else maxY -= 10; }
-    }
-  }
-  if (Math.abs(u.y - v.y) < 0.01) return { l: minX, r: maxX, t: u.y - thickness, b: u.y + thickness, type: "wire_h", exactY: u.y, origL, origR };
-  if (Math.abs(u.x - v.x) < 0.01) return { l: u.x - thickness, r: u.x + thickness, t: minY, b: maxY, type: "wire_v", exactX: u.x, origT, origB };
-  return null;
-}
-function getPriorWireObstacles(priorRoutes, endpoints, thickness = 4) {
-  const obstacles = [];
-  for (const prior of priorRoutes) {
-    for (let i = 1; i < prior.points.length; i++) {
-      const obs = trimSegmentObstacle(prior.points[i - 1], prior.points[i], endpoints, thickness);
-      if (obs) obstacles.push(obs);
-    }
-  }
-  return obstacles;
-}
 function routeWire(w, priorRoutes = [], excludeComponentId = null) {
-  const a = tp(w.from), b = tp(w.to);
-  if (!a || !b) return [];
-  const ca = cBy(w.from.split(":")[0]), cb = cBy(w.to.split(":")[0]);
-  const va = terminalVector(ca, w.from.endsWith(":a") ? "a" : "b", 18);
-  const vb = terminalVector(cb, w.to.endsWith(":a") ? "a" : "b", 18);
-  const start = { x: a.x + va.x, y: a.y + va.y }, end = { x: b.x + vb.x, y: b.y + vb.y };
-  const compObstacles = getComponentObstacles(w, excludeComponentId);
-  const wireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 4);
-  let routed = routeOrthogonal(start, end, [...compObstacles, ...wireObstacles]);
-  if (!routed.length) {
-    const thinWireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 1);
-    routed = routeOrthogonal(start, end, [...compObstacles, ...thinWireObstacles]);
-  }
-  if (!routed.length) routed = routeOrthogonal(start, end, compObstacles);
-  const full = routed.length ? [a, ...routed, b] : [];
-  return full.filter((p, i) => i === 0 || Math.hypot(p.x - full[i - 1].x, p.y - full[i - 1].y) > 0.1);
+  const excId = excludeComponentId || (drag && drag.id);
+  return coreRouteWire(w, state.components, state.junctions, priorRoutes, { excludeComponentId: excId });
 }
 function wireCurrentDirection(w,componentReadings){
 if(!componentReadings)return 0;

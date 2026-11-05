@@ -1,115 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { routeOrthogonal } from "../packages/core/src/wire-router.js";
-
-// Helper: rotate point
-function rotatePoint(x, y, angle) {
-  const r = ((angle || 0) % 360 + 360) % 360;
-  return r === 90 ? { x: -y, y: x } : r === 180 ? { x: -x, y: -y } : r === 270 ? { x: y, y: -x } : { x, y };
-}
-
-// Helper: terminal coordinate
-function p(c, s) {
-  const q = rotatePoint(s === "a" ? -36 : 36, 0, c.rotation || 0);
-  return { x: c.x + q.x, y: c.y + q.y };
-}
-
-// Helper: terminal outward normal vector
-function terminalVector(c, s, length = 1) {
-  if (!c) return { x: 0, y: 0 };
-  return rotatePoint(s === "a" ? -length : length, 0, c.rotation || 0);
-}
-
-// Helper: terminal point resolver
-function tp(key, components, junctions = []) {
-  if (key.startsWith("j:")) {
-    const j = junctions.find(item => item.id === key.slice(2));
-    return j ? { x: j.x, y: j.y } : null;
-  }
-  const [cid, side] = key.split(":");
-  const c = components.find(item => item.id === cid);
-  return c ? p(c, side) : null;
-}
-
-// Helper: component obstacle builder
-function getComponentObstacles(wire, components, junctions = []) {
-  const list = [];
-  for (const c of components) {
-    const isConnA = wire.from === c.id + ":a" || wire.to === c.id + ":a";
-    const isConnB = wire.from === c.id + ":b" || wire.to === c.id + ":b";
-    if (!isConnA && !isConnB) {
-      const isRot = (c.rotation || 0) % 180 !== 0;
-      list.push(isRot ? { l: c.x - 28, r: c.x + 28, t: c.y - 56, b: c.y + 56, type: "comp" } : { l: c.x - 56, r: c.x + 56, t: c.y - 28, b: c.y + 28, type: "comp" });
-    } else {
-      list.push({ l: c.x - 22, r: c.x + 22, t: c.y - 22, b: c.y + 22, type: "comp" });
-      if (!isConnA) { const ta = p(c, "a"); list.push({ l: ta.x - 14, r: ta.x + 14, t: ta.y - 14, b: ta.y + 14, type: "comp" }); }
-      if (!isConnB) { const tb = p(c, "b"); list.push({ l: tb.x - 14, r: tb.x + 14, t: tb.y - 14, b: tb.y + 14, type: "comp" }); }
-    }
-  }
-  for (const j of junctions) {
-    if (wire.from !== "j:" + j.id && wire.to !== "j:" + j.id) {
-      list.push({ l: j.x - 12, r: j.x + 12, t: j.y - 12, b: j.y + 12, type: "comp" });
-    }
-  }
-  return list;
-}
-
-// Helper: trim segment obstacle
-function trimSegmentObstacle(u, v, endpoints, thickness = 4) {
-  let minX = Math.min(u.x, v.x), maxX = Math.max(u.x, v.x);
-  let minY = Math.min(u.y, v.y), maxY = Math.max(u.y, v.y);
-  const origL = minX, origR = maxX, origT = minY, origB = maxY;
-  for (const pt of endpoints) {
-    if (Math.hypot(u.x - pt.x, u.y - pt.y) < 6) {
-      if (Math.abs(u.y - v.y) < 0.01) { if (v.x > u.x) minX += 10; else maxX -= 10; }
-      else { if (v.y > u.y) minY += 10; else maxY -= 10; }
-    }
-    if (Math.hypot(v.x - pt.x, v.y - pt.y) < 6) {
-      if (Math.abs(u.y - v.y) < 0.01) { if (u.x > v.x) minX += 10; else maxX -= 10; }
-      else { if (u.y > v.y) minY += 10; else maxY -= 10; }
-    }
-  }
-  if (Math.abs(u.y - v.y) < 0.01) {
-    return { l: minX, r: maxX, t: u.y - thickness, b: u.y + thickness, type: "wire_h", exactY: u.y, origL, origR };
-  }
-  if (Math.abs(u.x - v.x) < 0.01) {
-    return { l: u.x - thickness, r: u.x + thickness, t: minY, b: maxY, type: "wire_v", exactX: u.x, origT, origB };
-  }
-  return null;
-}
-
-// Helper: prior wire obstacle collector
-function getPriorWireObstacles(priorRoutes, endpoints, thickness = 4) {
-  const obstacles = [];
-  for (const prior of priorRoutes) {
-    for (let i = 1; i < prior.points.length; i++) {
-      const obs = trimSegmentObstacle(prior.points[i - 1], prior.points[i], endpoints, thickness);
-      if (obs) obstacles.push(obs);
-    }
-  }
-  return obstacles;
-}
-
-// Core wire router
-function routeWireTest(w, components, junctions, priorRoutes = []) {
-  const a = tp(w.from, components, junctions), b = tp(w.to, components, junctions);
-  if (!a || !b) return [];
-  const ca = components.find(c => c.id === w.from.split(":")[0]);
-  const cb = components.find(c => c.id === w.to.split(":")[0]);
-  const va = terminalVector(ca, w.from.endsWith(":a") ? "a" : "b", 18);
-  const vb = terminalVector(cb, w.to.endsWith(":a") ? "a" : "b", 18);
-  const start = { x: a.x + va.x, y: a.y + va.y }, end = { x: b.x + vb.x, y: b.y + vb.y };
-  const compObstacles = getComponentObstacles(w, components, junctions);
-  const wireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 4);
-  let routed = routeOrthogonal(start, end, [...compObstacles, ...wireObstacles]);
-  if (!routed.length) {
-    const thinWireObstacles = getPriorWireObstacles(priorRoutes, [start, end, a, b], 1);
-    routed = routeOrthogonal(start, end, [...compObstacles, ...thinWireObstacles]);
-  }
-  if (!routed.length) routed = routeOrthogonal(start, end, compObstacles);
-  const full = routed.length ? [a, ...routed, b] : [];
-  return full.filter((p, i) => i === 0 || Math.hypot(p.x - full[i - 1].x, p.y - full[i - 1].y) > 0.1);
-}
+import {
+  routeOrthogonal,
+  getTerminalCoord as p,
+  routeWire as routeWireTest
+} from "../packages/core/src/wire-router.js";
 
 // Router for entire circuit
 function routeCircuit(components, wires, junctions = []) {
@@ -929,4 +824,28 @@ test("Case 52: Channel density - 4 parallel wires routed through a single horizo
     { id: "w4", from: "s4:b", to: "d4:a" }
   ];
   assertRoutingQuality(routeCircuit(c, w), c);
+});
+
+test("Case 53: 3-element series circuit (Battery - Switch - Lamp) clears labels and rotate controls", () => {
+  const c = [
+    { id: "bat", type: "battery", x: 130, y: 226, rotation: 0 },
+    { id: "sw", type: "switch", x: 290, y: 121, rotation: 0 },
+    { id: "lamp", type: "lamp", x: 491, y: 121, rotation: 0 }
+  ];
+  const w = [
+    { id: "w1", from: "bat:b", to: "sw:a" },
+    { id: "w2", from: "sw:b", to: "lamp:a" },
+    { id: "w3", from: "lamp:b", to: "bat:a" }
+  ];
+  const routes = routeCircuit(c, w);
+  assertRoutingQuality(routes, c);
+
+  const r3 = routes.find(r => r.w.id === "w3");
+  assert.ok(r3, "w3 must be routed");
+  for (let i = 1; i < r3.points.length; i++) {
+    const p1 = r3.points[i - 1], p2 = r3.points[i];
+    assert.equal(intersectsRect(p1, p2, { l: 290 - 32, r: 290 + 32, t: 121 + 18, b: 121 + 64 }), false, "w3 must not intersect switch label");
+    assert.equal(intersectsRect(p1, p2, { l: 491 - 32, r: 491 + 32, t: 121 + 18, b: 121 + 64 }), false, "w3 must not intersect lamp label");
+    assert.equal(intersectsRect(p1, p2, { l: 130 - 20, r: 130 + 20, t: 226 - 42, b: 226 - 22 }), false, "w3 must not intersect battery rotate button");
+  }
 });

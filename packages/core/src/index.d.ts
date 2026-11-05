@@ -122,6 +122,13 @@ export function validateCircuit(components: CircuitComponent[], wires: Wire[], j
 export function solveCircuit(components: CircuitComponent[], wires: Wire[], junctions?: Junction[]): CircuitSolveResult;
 export function simulateTransient(components: CircuitComponent[], wires: Wire[], options?: TransientOptions, junctions?: Junction[]): CircuitSolveResult;
 export function routeOrthogonal(start: Point, end: Point, obstacles?: Obstacle[]): Point[];
+export function getComponentObstacles(wire: Wire, components?: CircuitComponent[], junctions?: Junction[], options?: { excludeComponentId?: string | null }): Obstacle[];
+export function trimSegmentObstacle(u: Point, v: Point, endpoints: Point[], thickness?: number): Obstacle | null;
+export function getPriorWireObstacles(priorRoutes?: Array<{ points: Point[] }>, endpoints?: Point[], thickness?: number): Obstacle[];
+export function routeWire(w: Wire, components?: CircuitComponent[], junctions?: Junction[], priorRoutes?: Array<{ points: Point[] }>, options?: { excludeComponentId?: string | null }): Point[];
+export function rotatePoint(x: number, y: number, angle?: number): Point;
+export function getTerminalCoord(c: CircuitComponent, s: "a" | "b" | string): Point;
+export function terminalVector(c?: CircuitComponent | null, s?: "a" | "b" | string, length?: number): Point;
 
 export { normalizeViewportConfig, resolveViewportSize } from "./viewport.js";
 export type { ViewportConfig, NormalizedViewportConfig, ViewportContainerSize, ResolvedViewportSize, ViewportDimension } from "./viewport.js";
